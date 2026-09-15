@@ -1,0 +1,6 @@
+* text=auto eol=lf
+# Keep bundled font and license bytes identical to the tested APK inputs.
+app/src/main/assets/** -text
+*.ttf binary
+*.apk binary
+*.zip binary

@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">주간 잔여량</string>
+    <string name="widget_description">주간 잔여율·선택한 날짜와 시간 · 누르면 새로고침</string>
+</resources>

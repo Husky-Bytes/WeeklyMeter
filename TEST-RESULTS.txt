@@ -1,0 +1,56 @@
+WeeklyMeter 0.4.0 — direct widget refresh, padding, compact settings, 2026-09-15
+
+PASS: 49 core parsing/network-boundary checks.
+PASS: 71 usage/JSON/bucket scenarios, including 1001 percentage samples.
+PASS: 566 widget-style/date/layout/bitmap-budget/internal-spacing checks, pure Java.
+PASS: 40 manual-refresh feedback/expiry checks, pure Java.
+PASS: 12 actual bundled font parsing/Korean-numeric glyph/license checks, JDK AWT.
+PASS: 91 authentication/refresh checks, real Api/Repo with fake HTTPS and storage.
+PASS: 40 periodic scheduler/job/feedback lifecycle checks with Android/Repo doubles.
+PASS: 87 browser PKCE/callback checks, including synthetic real loopback sockets.
+PASS: 28 browser login service lifecycle checks with fake Android/browser/Repo.
+PASS: 64 manual foreground service checks with real service/Scheduler/UsageJob/Feedback
+and fake Android/Repo. No Activity class, real account or network exists in that harness.
+PASS: 33 APK asset checks: raw ZIP paths, duplicates, exact names, bytes/lengths.
+The 33 checks run before signing AND on the signed final APK; counted only once.
+Prior font regression record retained: 0.3.0 APK has eight raw asset paths with
+backslashes. This defect is absent from the final APK's fresh raw-path checks.
+TOTAL: 1081 executable checks (1036 logic/lifecycle + 12 font files + 33 APK assets).
+No real account or Android device is represented by these tests.
+PASS: 10 XML files, resource references, manifest components and restricted permissions.
+PASS: Full Windows Android compilation, DEX, alignment, signing and APK verification.
+
+Build: JDK 21.0.8; Android platform 36; build-tools 35.0.0; minSdk26/targetSdk35.
+Package dev.yerin.weeklymeter; versionCode6/versionName0.4.0.
+APK signature v2/v3 verified; preserved personal update signing certificate.
+APK SHA256: 51745cb24a40efdbc6b42893c1f8b3775ba5afb45dd9da5c83edd6e35e325421
+Certificate SHA256: abfc4290289a8df7abffe951cf096fcd1fbe3972f0887d95390bab5a4d5816ab
+
+Changes: explicit widget getForegroundService PendingIntent; non-exported dataSync
+helper, encrypted-session reconciliation on cold start, no manual JobScheduler work.
+Tests cover repeated taps/running and terminal holds, blocked service/notification,
+missing session, throttling/failure/cancellation, queued timeout with no late fetch,
+rotation drain without interruption, 70-second service cap, generations and logout,
+0.1/10-second holds, terminal preservation on destroy/OS timeout, executor rejection.
+Automatic work remains periodic-only; old manual jobs are cancelled/refused.
+55-second request watchdog and 70-second helper cap are not a strict HTTP total limit.
+
+Spacing: additive preference fields preserve existing automatic spacing by default;
+custom horizontal/vertical/gap normalization, minimum content area and small/resized
+layout calculations are tested. Real Android Canvas and launcher visuals are not.
+Settings: selected category/element panels, pinned adaptive preview, inline choices,
+existing options and numeric/HEX guards reviewed; tiny-mode navigation reattachment
+defense included. Keyboard, touch, visual hierarchy and actual scrolling are untested.
+Windows packaging retains explicit forward-slash asset names before signing.
+No authentication endpoint, credential format or signing key change.
+
+NOT TESTED: APK installation/launch; actual Chrome/Samsung Internet authorization;
+real OpenAI tokens/refresh/revocation; Android Keystore/AtomicFile runtime;
+real Canvas/widget/settings/keyboard rendering; Galaxy S25 Ultra/One UI 1x1 allocation,
+reboot/Doze/long-term login retention; live usage vs official screen;
+Linux full build execution or byte-for-byte reproducibility.
+Android execution tooling failed creating its own settings directory even after a
+narrow directory permission grant. No actual device result is claimed.
+Automatic session refresh cannot prevent server revocation or guarantee permanent login.
+Effect duration is best effort: OS process death can retain a cached launcher image
+until the next redraw. No exact alarm or permanent foreground service was added.
