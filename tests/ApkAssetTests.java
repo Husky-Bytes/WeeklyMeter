@@ -9,7 +9,7 @@ import java.util.zip.*;
 public final class ApkAssetTests {
     private static final long MAX_APK=64L*1024*1024,MAX_ASSET=16L*1024*1024;
     private static final String[] EXPECTED={
-        "NOTICES.txt","fonts/gothic.ttf","fonts/rounded.ttf","fonts/serif.ttf","fonts/mono.ttf",
+        "NOTICES.txt","NOTICES-en.txt","fonts/gothic.ttf","fonts/rounded.ttf","fonts/serif.ttf","fonts/mono.ttf",
         "fonts/gothic-OFL.txt","fonts/rounded-OFL.txt","fonts/serif-OFL.txt","fonts/mono-OFL.txt"
     };
     private static int checks;
@@ -35,7 +35,7 @@ public final class ApkAssetTests {
             check(count>0&&count<=4096,"APK entry count");
             check(backwards.isEmpty(),"Raw APK entry names contain backslashes: "+backwards);
             check(duplicates.isEmpty(),"Duplicate raw APK entry names: "+duplicates);
-            check(actualAssets.equals(expected),"APK assets differ from the exact expected nine paths; actual="+actualAssets);
+            check(actualAssets.equals(expected),"APK assets differ from the exact expected ten paths; actual="+actualAssets);
             for(String relative:EXPECTED){
                 Path source=assets.resolve(relative).normalize();
                 check(source.startsWith(assets)&&Files.isRegularFile(source,LinkOption.NOFOLLOW_LINKS)&&Files.size(source)>0&&Files.size(source)<=MAX_ASSET,"Source asset absent, linked or oversized: "+relative);
@@ -47,7 +47,7 @@ public final class ApkAssetTests {
                 check(MessageDigest.isEqual(expectedHash,actualHash),"APK asset bytes differ from source: "+exact);
             }
         }
-        System.out.println("PASS: "+checks+" APK asset checks (raw paths, duplicates, exact nine files, bounded SHA-256 comparison; no Android runtime test).");
+        System.out.println("PASS: "+checks+" APK asset checks (raw paths, duplicates, exact ten files, bounded SHA-256 comparison; no Android runtime test).");
     }
     private static byte[] digest(InputStream in)throws Exception{
         MessageDigest digest=MessageDigest.getInstance("SHA-256");byte[] buffer=new byte[8192];long total=0;int n;

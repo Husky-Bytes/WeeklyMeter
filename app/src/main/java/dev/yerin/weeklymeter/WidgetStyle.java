@@ -49,7 +49,7 @@ final class WidgetStyle {
     int backgroundArgb(){return (Math.round(opacity*255/100f)<<24)|(background&0xffffff);}
     static int parseRgb(String input){
         String value=input==null?"":input.trim();if(value.startsWith("#"))value=value.substring(1);
-        if(!value.matches("[0-9a-fA-F]{6}"))throw new IllegalArgumentException("색상을 #RRGGBB 형식으로 입력해 줘.");
+        if(!value.matches("[0-9a-fA-F]{6}"))throw new IllegalArgumentException("색상을 #RRGGBB 형식으로 입력해 주세요.");
         return 0xff000000|Integer.parseInt(value,16);
     }
     static String rgb(int color){return String.format(Locale.ROOT,"#%06X",color&0xffffff);}
@@ -60,7 +60,9 @@ final class WidgetStyle {
         long pixels=(long)(screenWidth>0?screenWidth:320)*(screenHeight>0?screenHeight:640);
         return Math.max(1,(int)Math.min(220000,Math.floor(pixels*1.2/clamp(variants,1,4))));
     }
-    static String rowName(int id){return new String[]{"퍼센트","초기화 시각","마지막 성공 조회","ChatGPT"}[clamp(id,0,3)];}
+    static String rowName(int id){return rowName(id,Locale.KOREAN);}
+    static String rowName(int id,Locale locale){return (korean(locale)?new String[]{"퍼센트","초기화 시각","마지막 성공 조회","ChatGPT"}:new String[]{"Percentage","Reset time","Last successful refresh","ChatGPT"})[clamp(id,0,3)];}
+    private static boolean korean(Locale locale){return locale!=null&&"ko".equals(locale.getLanguage());}
     /** Resolved internal spacing only; launcher-reserved cell margins are not changed. */
     static final class Spacing {
         final float horizontal,vertical,gap,innerWidth,innerHeight;
@@ -109,14 +111,17 @@ final class WidgetStyle {
         void normalize(){separator=clamp(separator,0,3);}
         boolean hasElements(){return year||month||day||weekday||hour||minute||second||ampm;}
         String format(long epochSeconds,TimeZone zone,String labelText){
+            return format(epochSeconds,zone,labelText,Locale.KOREAN);
+        }
+        String format(long epochSeconds,TimeZone zone,String labelText,Locale locale){
             if(epochSeconds<=0||epochSeconds>100_000_000_000L||!hasElements())return "";
-            Calendar c=Calendar.getInstance(zone==null?TimeZone.getDefault():zone,Locale.KOREA);c.setTimeInMillis(epochSeconds*1000);
+            boolean ko=korean(locale);Calendar c=Calendar.getInstance(zone==null?TimeZone.getDefault():zone,ko?Locale.KOREA:Locale.ENGLISH);c.setTimeInMillis(epochSeconds*1000);
             List<String> dates=new ArrayList<>(),times=new ArrayList<>();
-            if(year)dates.add(String.format(Locale.ROOT,"%04d",c.get(Calendar.YEAR))+(separator==3?"년":""));
-            if(month)dates.add(number(c.get(Calendar.MONTH)+1,leadingZero)+(separator==3?"월":""));
-            if(day)dates.add(number(c.get(Calendar.DAY_OF_MONTH),leadingZero)+(separator==3?"일":""));
+            if(year)dates.add(String.format(Locale.ROOT,"%04d",c.get(Calendar.YEAR))+(separator==3&&ko?"년":""));
+            if(month)dates.add(separator==3&&!ko?new java.text.DateFormatSymbols(Locale.ENGLISH).getShortMonths()[c.get(Calendar.MONTH)]:number(c.get(Calendar.MONTH)+1,leadingZero)+(separator==3?"월":""));
+            if(day)dates.add(number(c.get(Calendar.DAY_OF_MONTH),leadingZero)+(separator==3&&ko?"일":""));
             String[] separators={".","/","-"," "};String date=join(dates,separators[clamp(separator,0,3)]);
-            if(weekday){String[] weekdays={"일","월","화","수","목","금","토"};date+=(date.isEmpty()?"":" ")+"("+weekdays[c.get(Calendar.DAY_OF_WEEK)-1]+")";}
+            if(weekday){String[] weekdays=ko?new String[]{"일","월","화","수","목","금","토"}:new String[]{"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};date+=(date.isEmpty()?"":" ")+"("+weekdays[c.get(Calendar.DAY_OF_WEEK)-1]+")";}
             int h=c.get(Calendar.HOUR_OF_DAY);if(!use24h)h=h%12==0?12:h%12;
             if(hour)times.add(number(h,leadingZero));
             // Once hours are present, minutes/seconds have clock-style zero padding.
@@ -124,7 +129,7 @@ final class WidgetStyle {
             if(minute)times.add(number(c.get(Calendar.MINUTE),leadingZero||hour));
             if(second)times.add(number(c.get(Calendar.SECOND),leadingZero||hour||minute));
             String time=join(times,":");
-            if(ampm)time=(c.get(Calendar.AM_PM)==Calendar.AM?"오전":"오후")+(time.isEmpty()?"":" "+time);
+            if(ampm){String marker=c.get(Calendar.AM_PM)==Calendar.AM?(ko?"오전":"AM"):(ko?"오후":"PM");time=ko?marker+(time.isEmpty()?"":" "+time):time+(time.isEmpty()?"":" ")+marker;}
             String result=date+(date.isEmpty()||time.isEmpty()?"":twoLines?"\n":" ")+time;
             String prefix=labelText==null?"":labelText.trim();
             return label&&!result.isEmpty()&&!prefix.isEmpty()?prefix+" "+result:result;

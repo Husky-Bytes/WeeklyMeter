@@ -36,7 +36,7 @@ public final class BrowserLoginService extends Service {
         started=true;attempt=SystemClock.elapsedRealtimeNanos();
         status=new Status(attempt,"starting","","브라우저 로그인 준비 중…");
         NotificationManager nm=getSystemService(NotificationManager.class);
-        nm.createNotificationChannel(new NotificationChannel(CHANNEL,"로그인 진행",NotificationManager.IMPORTANCE_LOW));
+        nm.createNotificationChannel(new NotificationChannel(CHANNEL,Messages.localize("로그인 진행",Texts.locale(this)),NotificationManager.IMPORTANCE_LOW));
         Notification n=notification("폰 브라우저에서 로그인을 완료해 줘.");
         try{
             if(Build.VERSION.SDK_INT>=29)startForeground(NOTIFICATION,n,ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
@@ -44,7 +44,7 @@ public final class BrowserLoginService extends Service {
         }catch(RuntimeException e){finish("로그인 작업을 시작할 수 없어. 앱을 연 상태에서 다시 눌러 줘.");return START_NOT_STICKY;}
         listener.execute(()->{
             try{
-                BrowserAuth.Session current=BrowserAuth.bind();session=current;
+                BrowserAuth.Session current=BrowserAuth.bind(Texts.locale(this));session=current;
                 if(cancelled.get()){current.close();return;}
                 final String authorizationUrl=current.authorizeUrl();
                 main.post(()->{if(!cancelled.get()&&status.attempt==attempt)status=new Status(attempt,"waiting",authorizationUrl,"브라우저에서 로그인한 뒤 이 앱으로 돌아와 줘.");});
@@ -80,9 +80,9 @@ public final class BrowserLoginService extends Service {
         PendingIntent view=PendingIntent.getActivity(this,1455,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         Intent cancel=new Intent(this,BrowserLoginService.class).setAction(CANCEL);
         PendingIntent stop=PendingIntent.getService(this,1456,cancel,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        return new Notification.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_meter).setContentTitle("Weekly Meter 로그인")
-            .setContentText(text).setContentIntent(view).setOngoing(true).setCategory(Notification.CATEGORY_SERVICE)
-            .setVisibility(Notification.VISIBILITY_PRIVATE).addAction(new Notification.Action.Builder(null,"취소",stop).build()).build();
+        return new Notification.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_meter).setContentTitle(Messages.localize("Weekly Meter 로그인",Texts.locale(this)))
+            .setContentText(Messages.localize(text,Texts.locale(this))).setContentIntent(view).setOngoing(true).setCategory(Notification.CATEGORY_SERVICE)
+            .setVisibility(Notification.VISIBILITY_PRIVATE).addAction(new Notification.Action.Builder(null,Messages.localize("취소",Texts.locale(this)),stop).build()).build();
     }
     static void cancel(Context c){c.startService(new Intent(c,BrowserLoginService.class).setAction(CANCEL));}
     private boolean currentAttempt(){return !cancelled.get()&&status.attempt==attempt&&status.active();}

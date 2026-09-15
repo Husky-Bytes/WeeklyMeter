@@ -9,6 +9,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Locale;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
@@ -55,6 +56,33 @@ public final class BrowserAuthTests {
     private static FutureTask<BrowserAuth.Result> waitFor(BrowserAuth.Session session) {
         FutureTask<BrowserAuth.Result> result = new FutureTask<>(session::awaitCallback);
         Thread thread = new Thread(result, "synthetic-browser-callback"); thread.setDaemon(true); thread.start(); return result;
+    }
+    private static void localizedResponse(int status, boolean accepted, Locale locale, String language, String message) throws Exception {
+        String response=BrowserAuth.response(status,accepted,locale);
+        String[] parts=response.split("\r\n\r\n",2);
+        check(parts.length==2,"Localized response has one HTTP header/body boundary");
+        String headers=parts[0],body=parts[1];
+        String phrase=status==200?"OK":status==408?"Request Timeout":"Bad Request";
+        check(headers.startsWith("HTTP/1.1 "+status+" "+phrase+"\r\n"),"Locale does not change HTTP status");
+        check(body.contains("<html lang=\""+language+"\">"),"Localized response declares its actual language");
+        check(body.contains("<p>"+message+"</p>"),"Localized success/failure body matches selected language");
+        check(body.contains("<meta charset=\"utf-8\">")&&headers.contains("\r\nContent-Type: text/html; charset=utf-8"),"Localized response is UTF8 throughout");
+        int lengthHeaders=0,declared=-1;
+        for(String header:headers.split("\r\n"))if(header.startsWith("Content-Length: ")){lengthHeaders++;declared=Integer.parseInt(header.substring("Content-Length: ".length()));}
+        check(lengthHeaders==1&&declared==body.getBytes(StandardCharsets.UTF_8).length,"Localized UTF8 byte length is exact and unique");
+        check(!"ko".equals(language)||declared>body.length(),"Korean byte length is not a character count");
+        check(!"en".equals(language)||!java.util.regex.Pattern.compile("[가-힣]").matcher(body).find(),"English and fallback bodies contain no Korean text");
+        check(headers.contains("\r\nCache-Control: no-store")&&headers.contains("\r\nPragma: no-cache"),"Every locale prevents response caching");
+        check(headers.contains("\r\nReferrer-Policy: no-referrer")&&headers.contains("\r\nX-Content-Type-Options: nosniff"),"Every locale keeps referrer and MIME protections");
+        check(headers.contains("\r\nConnection: close")&&!headers.contains("Location:")&&!headers.contains("Set-Cookie:"),"Localized response closes without redirect or cookies");
+        check(headers.contains("default-src 'none'")&&headers.contains("base-uri 'none'")&&headers.contains("frame-ancestors 'none'")&&headers.contains("form-action 'none'"),"Every locale retains restrictive CSP");
+        int scriptStart=body.indexOf("<script>"),scriptEnd=body.indexOf("</script>");
+        check(scriptStart>=0&&scriptEnd>scriptStart&&body.indexOf("<script>",scriptStart+1)<0,"Exactly one fixed cleanup script");
+        String script=body.substring(scriptStart+"<script>".length(),scriptEnd);
+        String digest=java.util.Base64.getEncoder().encodeToString(java.security.MessageDigest.getInstance("SHA-256").digest(script.getBytes(StandardCharsets.UTF_8)));
+        check(headers.contains("script-src 'sha256-"+digest+"'")&&!headers.contains("'unsafe-inline'")&&!headers.contains("'unsafe-eval'"),"Localized CSP hash independently matches actual cleanup script");
+        check(script.contains("history.replaceState")&&!body.contains("src=")&&!body.contains("href="),"Locale preserves callback URL cleanup without remote resources");
+        check(!response.contains(STATE)&&!response.contains("synthetic-code")&&!response.contains("network-synthetic-code")&&!response.contains("Do not reflect")&&!response.contains("access_token")&&!response.contains("refresh_token")&&!response.contains("id_token"),"Localized page never echoes callback secrets or provider error text");
     }
     public static void main(String[] args) throws Exception {
         check(STATE.length() == 43, "Fixture state length");
@@ -134,6 +162,19 @@ public final class BrowserAuthTests {
         check(response.contains("history.replaceState") && !response.contains("Location:"), "Clear callback URL without redirect");
         String[] responseParts = response.split("\r\n\r\n", 2);
         check(responseParts[0].contains("Content-Length: " + responseParts[1].getBytes(StandardCharsets.UTF_8).length), "UTF8 byte length correct");
+        Locale[] locales={Locale.KOREAN,Locale.ENGLISH,Locale.JAPANESE,null};
+        for(Locale locale:locales){
+            boolean ko=locale!=null&&"ko".equals(locale.getLanguage());String language=ko?"ko":"en";
+            localizedResponse(200,true,locale,language,ko?"브라우저 확인 완료. 앱에서 연결 결과를 확인해 주세요.":"Browser step complete. Return to the app to check the result.");
+            for(int status:new int[]{400,408})localizedResponse(status,false,locale,language,ko?"요청을 확인할 수 없습니다. 원래 로그인 화면에서 계속해 주세요.":"Could not verify this request. Continue from the original sign-in page.");
+        }
+        for(boolean accepted:new boolean[]{true,false}){
+            int status=accepted?200:400;
+            check(BrowserAuth.response(status,accepted).equals(BrowserAuth.response(status,accepted,Locale.KOREAN)),"Legacy response default remains Korean");
+            check(BrowserAuth.response(status,accepted,Locale.KOREA).equals(BrowserAuth.response(status,accepted,Locale.KOREAN)),"Korean region variant follows Korean language");
+            check(BrowserAuth.response(status,accepted,Locale.JAPANESE).equals(BrowserAuth.response(status,accepted,Locale.ENGLISH)),"Unsupported locale response is identical to English fallback");
+            check(BrowserAuth.response(status,accepted,null).equals(BrowserAuth.response(status,accepted,Locale.ENGLISH)),"Null locale response is identical to English fallback");
+        }
 
         if (args.length > 0 && "--unit-only".equals(args[0])) {
             System.out.println("Browser auth checks passed: " + checks + " (parser/PKCE only; sockets skipped)"); return;

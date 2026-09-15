@@ -27,14 +27,17 @@ bash test-lifecycle.sh
 bash test-browser-auth.sh
 bash test-browser-service.sh
 bash test-widget-refresh-service.sh
+bash test-localization.sh
+bash test-language.sh
 bash test-syntax.sh
 python3 check-project.py
+python3 tests/check-adaptive-icon.py
 OUT=$(mktemp -d)
 trap 'rm -rf "$OUT"' EXIT
 mkdir -p "$OUT/gen" "$OUT/classes" "$OUT/dex" dist
 "$TOOLS/aapt2" compile --dir app/src/main/res -o "$OUT/resources.zip"
 "$TOOLS/aapt2" link -I "$ANDROID_JAR" --manifest app/src/main/AndroidManifest.xml \
-  --java "$OUT/gen" -A app/src/main/assets --min-sdk-version 26 --target-sdk-version 35 --version-code 6 --version-name 0.4.0 \
+  --java "$OUT/gen" -A app/src/main/assets --min-sdk-version 26 --target-sdk-version 35 --version-code 7 --version-name 0.5.0 \
   -o "$OUT/base.apk" "$OUT/resources.zip"
 find app/src/main/java "$OUT/gen" -name '*.java' > "$OUT/sources.txt"
 [[ -f "$TOOLS/core-lambda-stubs.jar" ]] || { echo "Android build-tools core-lambda-stubs.jar required." >&2;exit 2; }

@@ -103,7 +103,7 @@ public final class WeeklyWidget extends AppWidgetProvider {
             // A JobScheduler queue can defer a manual tap until the app is foreground.
             Intent refresh=new Intent(c,WidgetRefreshService.class).setAction(WidgetRefreshService.ACTION_REFRESH);
             view.setOnClickPendingIntent(R.id.widget_root,PendingIntent.getForegroundService(c,1,refresh,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));
-            view.setContentDescription(R.id.widget_root,result.accessibility+". "+Display.state(c,u)+". 누르면 새로고침");
+            view.setContentDescription(R.id.widget_root,result.accessibility+". "+Display.state(c,u)+". "+Texts.t(c,"누르면 새로고침","Tap to refresh"));
         }
         return view;
     }

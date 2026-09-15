@@ -1,0 +1,10 @@
+WeeklyMeter is an unofficial app and is not affiliated with OpenAI.
+
+ChatGPT and the OpenAI logo are trademarks of OpenAI. The optional widget logo identifies the service; it does not imply endorsement or affiliation.
+Brand guidelines: https://openai.com/brand/
+Logo source: https://cdn.openai.com/brand/OpenAI-Logos-2025.zip
+
+Bundled fonts: Nanum Gothic, Jua, Nanum Myeongjo, Nanum Gothic Coding
+Source: https://github.com/google/fonts/tree/main/ofl
+
+The fonts are distributed under the SIL Open Font License 1.1. Select a font in the list to read its original copyright notice and complete license.

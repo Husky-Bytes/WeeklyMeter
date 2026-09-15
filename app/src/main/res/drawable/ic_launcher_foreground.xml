@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Existing three-bar mark, inset inside the centered 66dp safe circle. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#B8EFCF" android:pathData="M32,66h10v12h-10zM49,48h10v30h-10zM66,30h10v48h-10z" />
+</vector>

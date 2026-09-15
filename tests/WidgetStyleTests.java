@@ -51,6 +51,30 @@ public final class WidgetStyleTests {
         check(defaults.format(date,TimeZone.getTimeZone("America/New_York"),"").equals("9.15 5:30"),"device timezone respected");
         check(defaults.format(Instant.parse("2026-03-08T06:59:00Z").getEpochSecond(),TimeZone.getTimeZone("America/New_York"),"").equals("3.8 1:59"),"DST before");
         check(defaults.format(Instant.parse("2026-03-08T07:00:00Z").getEpochSecond(),TimeZone.getTimeZone("America/New_York"),"").equals("3.8 3:00"),"DST after");
+        WidgetStyle.DateSpec english=empty();english.hour=english.minute=english.ampm=true;english.use24h=false;
+        check(english.format(date,seoul,"",Locale.ENGLISH).equals("6:30 PM"),"English AMPM follows clock time");
+        check(english.format(midnight,seoul,"",Locale.ENGLISH).equals("12:05 AM"),"English midnight uses AM");
+        check(english.format(date,seoul,"",Locale.KOREAN).equals("오후 6:30"),"explicit Korean locale preserves AMPM order");
+        english=empty();english.ampm=true;check(english.format(date,seoul,"",Locale.ENGLISH).equals("PM"),"English AMPM without date/time");
+        english=empty();english.weekday=true;check(english.format(date,seoul,"",Locale.ENGLISH).equals("(Tue)"),"English weekday only");
+        english=empty();english.year=english.month=english.day=true;english.separator=3;english.leadingZero=true;
+        check(english.format(date,seoul,"",Locale.ENGLISH).equals("2026 Sep 15"),"English word separator uses month names, not Korean units");
+        english.day=false;check(english.format(date,seoul,"",Locale.ENGLISH).equals("2026 Sep"),"English elements remain independently optional");
+        english.year=false;check(english.format(date,seoul,"",Locale.ENGLISH).equals("Sep"),"English month only");
+        english.month=false;english.day=true;check(english.format(date,seoul,"",Locale.ENGLISH).equals("15"),"English day only has no Korean suffix");
+        english=empty();english.hour=english.minute=english.label=english.twoLines=true;
+        check(english.format(date,seoul,"Updated",Locale.ENGLISH).equals("Updated 18:30"),"English label and time only without extra newline");
+        check(english.format(0,seoul,"Updated",Locale.ENGLISH).isEmpty(),"English missing date remains hidden");
+        check(english.format(date,seoul,"Updated",Locale.JAPANESE).equals("Updated 18:30"),"unsupported formatter locale uses English fallback");
+        check(english.format(date,seoul,"Updated",null).equals("Updated 18:30"),"null formatter locale uses English fallback");
+        check(WidgetStyle.rowName(WidgetStyle.LAST,Locale.ENGLISH).equals("Last successful refresh"),"English row name");
+        check(WidgetStyle.rowName(WidgetStyle.LAST,Locale.KOREAN).equals("마지막 성공 조회"),"Korean row name preserved");
+        check(WidgetStyle.rowName(WidgetStyle.LAST).equals(WidgetStyle.rowName(WidgetStyle.LAST,Locale.KOREAN)),"legacy pure row names remain Korean");
+        // Rendering a locale must never change the saved date composition or typography.
+        WidgetStyle sameStyle=WidgetStyle.defaults();sameStyle.rows[0].font=4;sameStyle.resetDate.separator=3;sameStyle.resetDate.weekday=true;
+        sameStyle.resetDate.format(date,seoul,"Resets",Locale.ENGLISH);
+        check(sameStyle.rows[0].font==4&&sameStyle.resetDate.separator==3&&sameStyle.resetDate.weekday,"formatting does not change font or date preferences");
+        check(sameStyle.resetDate.format(date,seoul,"초기화",Locale.KOREAN).equals("9월 15일 (화) 18:30"),"switching locale back preserves Korean composition");
         // Every independent year/month/day/weekday/hour/minute/second selection,
         // including the entirely empty and time-only/date-only combinations.
         for(int mask=0;mask<128;mask++){
@@ -58,6 +82,8 @@ public final class WidgetStyleTests {
             each.hour=(mask&16)!=0;each.minute=(mask&32)!=0;each.second=(mask&64)!=0;each.twoLines=true;
             String result=each.format(date,seoul,"");
             check(!result.startsWith(" ")&&!result.endsWith(" ")&&!result.startsWith("\n")&&!result.endsWith("\n")&&!result.contains("\n\n")&&(mask==0)==result.isEmpty(),"independent composition without empty pieces");
+            for(int separator=0;separator<4;separator++){each.separator=separator;String en=each.format(date,seoul,"Updated",Locale.ENGLISH);
+                check(!en.startsWith(" ")&&!en.endsWith(" ")&&!en.startsWith("\n")&&!en.endsWith("\n")&&!en.contains("\n\n")&&(mask==0)==en.isEmpty()&&!java.util.regex.Pattern.compile("[가-힣]").matcher(en).find(),"English independent date elements, separator and no Korean leakage");}
         }
         WidgetStyle clone=s.copy();clone.rows[0].sizeSp=73;clone.order[0]=3;clone.resetDate.year=true;
         check(s.rows[0].sizeSp!=73&&s.order[0]==0&&!s.resetDate.year,"deep copy");

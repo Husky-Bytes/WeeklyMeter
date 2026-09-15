@@ -29,16 +29,21 @@ public final class BrowserAuth {
     private static final String CLEAN_URL_SCRIPT = "history.replaceState(null, \"\", \"/auth/complete\");";
 
     /** The socket is bound before this method returns; launch authorizeUrl() only afterwards. */
-    public static Session bind() throws IOException { return bind(1455, LIFETIME_MILLIS); }
+    public static Session bind() throws IOException { return bind(1455, LIFETIME_MILLIS, Locale.KOREAN); }
+    public static Session bind(Locale locale) throws IOException { return bind(1455, LIFETIME_MILLIS, locale); }
 
     // Package-visible binding seam permits isolated, synthetic loopback tests on an ephemeral port.
     static Session bind(int port, long lifetimeMillis) throws IOException {
+        return bind(port, lifetimeMillis, Locale.KOREAN);
+    }
+
+    static Session bind(int port, long lifetimeMillis, Locale locale) throws IOException {
         if (lifetimeMillis <= 0 || lifetimeMillis > LIFETIME_MILLIS) throw new IllegalArgumentException("Invalid duration");
         ServerSocket server = new ServerSocket();
         try {
             server.setReuseAddress(false);
             server.bind(new InetSocketAddress(InetAddress.getByAddress(new byte[]{127,0,0,1}), port), 8);
-            return new Session(server, randomUrlSafe(), randomUrlSafe(), lifetimeMillis);
+            return new Session(server, randomUrlSafe(), randomUrlSafe(), lifetimeMillis, locale);
         } catch (IOException | RuntimeException e) {
             try { server.close(); } catch (IOException ignored) { }
             throw new IOException("브라우저 로그인 연결을 열지 못했어. 다른 로그인 창을 닫고 다시 시도해 줘.");
@@ -54,13 +59,15 @@ public final class BrowserAuth {
     public static final class Session implements Closeable {
         private final ServerSocket server;
         private final String state, verifier;
+        private final Locale locale;
         private final long expiresNanos;
         private volatile Socket activeSocket;
         private volatile boolean closed;
         private boolean awaited;
 
-        private Session(ServerSocket server, String state, String verifier, long lifetimeMillis) {
+        private Session(ServerSocket server, String state, String verifier, long lifetimeMillis, Locale locale) {
             this.server = server; this.state = state; this.verifier = verifier;
+            this.locale = locale!=null&&"ko".equals(locale.getLanguage())?Locale.KOREAN:Locale.ENGLISH;
             expiresNanos = System.nanoTime() + lifetimeMillis * 1_000_000L;
         }
 
@@ -99,17 +106,17 @@ public final class BrowserAuth {
                             result = parseRequest(request, state);
                             if (expired()) throw new SocketTimeoutException();
                         } catch (SocketTimeoutException invalid) {
-                            respond(connection, 408, false);
+                            respond(connection, 408, false, locale);
                             continue;
                         } catch (BadRequest invalid) {
-                            respond(connection, 400, false);
+                            respond(connection, 400, false, locale);
                             continue;
                         } catch (IOException disconnected) {
                             continue;
                         }
                         // Returning a code is deliberately independent of the browser receiving HTML.
                         // A broken connection must not lose a valid one-use authorization code.
-                        respond(connection, 200, true);
+                        respond(connection, 200, true, locale);
                         return result;
                     } finally { activeSocket = null; }
                 }
@@ -243,9 +250,14 @@ public final class BrowserAuth {
     }
 
     static String response(int status, boolean accepted) {
-        String text = accepted ? "브라우저 확인이 끝났어요. WeeklyMeter 앱으로 돌아가 연결 결과를 확인해 주세요."
-                : "요청을 확인하지 못했어요. 원래 로그인 화면에서 계속해 주세요.";
-        String html = "<!doctype html><html lang=\"ko\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        return response(status, accepted, Locale.KOREAN);
+    }
+
+    static String response(int status, boolean accepted, Locale locale) {
+        boolean korean=locale!=null&&"ko".equals(locale.getLanguage());
+        String text = accepted ? (korean?"브라우저 확인 완료. 앱에서 연결 결과를 확인해 주세요.":"Browser step complete. Return to the app to check the result.")
+                : (korean?"요청을 확인할 수 없습니다. 원래 로그인 화면에서 계속해 주세요.":"Could not verify this request. Continue from the original sign-in page.");
+        String html = "<!doctype html><html lang=\""+(korean?"ko":"en")+"\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
                 + "<title>WeeklyMeter</title><h1>WeeklyMeter</h1><p>" + text + "</p><script>" + CLEAN_URL_SCRIPT + "</script></html>";
         String phrase = status == 200 ? "OK" : status == 408 ? "Request Timeout" : "Bad Request";
         return "HTTP/1.1 " + status + " " + phrase + "\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: "
@@ -260,10 +272,10 @@ public final class BrowserAuth {
         catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException("SHA-256 unavailable"); }
     }
 
-    private static void respond(Socket socket, int status, boolean accepted) {
+    private static void respond(Socket socket, int status, boolean accepted, Locale locale) {
         try {
             OutputStream output = socket.getOutputStream();
-            output.write(response(status, accepted).getBytes(StandardCharsets.UTF_8)); output.flush();
+            output.write(response(status, accepted, locale).getBytes(StandardCharsets.UTF_8)); output.flush();
         } catch (IOException ignored) { }
     }
 

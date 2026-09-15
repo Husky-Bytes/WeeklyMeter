@@ -19,7 +19,7 @@ final class Store {
         // Do not silently switch to a different bucket if a user's chosen bucket disappears.
         prefs(c).edit().putString("meters",Json.encode(encoded)).putString("error","").putLong("backoff",0).apply();
     }
-    static String error(Context c){return prefs(c).getString("error","");}
+    static String error(Context c){return Messages.localize(prefs(c).getString("error",""),Texts.locale(c));}
     static void error(Context c,String msg){prefs(c).edit().putString("error",msg).apply();}
     private Store(){}
 }

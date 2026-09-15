@@ -33,7 +33,9 @@ for key in ['automatic_padding','padding_horizontal_dp','padding_vertical_dp','r
 settings_source=(main/'java/dev/yerin/weeklymeter/WidgetStyleSettingsActivity.java').read_text(encoding='utf-8')
 assert 'new Repo(' not in settings_source and 'Scheduler.request(' not in settings_source
 main_source=(main/'java/dev/yerin/weeklymeter/MainActivity.java').read_text(encoding='utf-8')
-resume=next(line for line in main_source.splitlines() if 'void onResume()' in line)
+resume_start=main_source.index('void onResume()')
+resume_end=main_source.index('@Override protected void onPause()',resume_start)
+resume=main_source[resume_start:resume_end]
 assert 'reconcileConnection()' in resume and '.sync(' not in resume, 'app resume must not fetch usage'
 widget=ET.parse(res/'xml/weekly_widget_info.xml').getroot()
 assert widget.attrib[a+'targetCellWidth']=='1' and widget.attrib[a+'targetCellHeight']=='1'
@@ -42,7 +44,8 @@ layout=ET.parse(res/'layout/weekly_widget.xml').getroot()
 assert not any(n.tag in {'Button','ProgressBar'} for n in layout.iter())
 known=set()
 for f in res.rglob('*.xml'):
-    if f.parent.name!='values':known.add((f.parent.name,f.stem))
+    resource_type=f.parent.name.split('-')[0]
+    if resource_type!='values':known.add((resource_type,f.stem))
     for node in ET.parse(f).getroot().iter():
         if 'name' in node.attrib:known.add((node.tag,node.attrib['name']))
         for v in node.attrib.values():

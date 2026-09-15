@@ -14,7 +14,7 @@ public final class ColorWheelView extends View {
     private float centerX,centerY,radius;
     private Shader hues,saturation;
     private boolean tracking;
-    public ColorWheelView(Context context){super(context);setFocusable(true);setContentDescription("색상 휠. 각도는 색상, 중심에서의 거리는 채도. HEX 입력으로도 색상을 바꿀 수 있어요.");}
+    public ColorWheelView(Context context){super(context);setFocusable(true);setContentDescription(Texts.t(context,"색상 휠. 각도: 색상, 중심으로부터 거리: 채도. HEX 직접 입력 가능.","Color wheel. Angle selects hue; distance from the center selects saturation. You can also enter a HEX color."));}
     public void setColor(int color){float[] value=new float[3];Color.colorToHSV(color,value);if(value[2]>0){if(value[1]>0)hsv[0]=value[0];hsv[1]=value[1];}hsv[2]=value[2];invalidate();}
     public void setBrightness(float value){hsv[2]=Math.max(0,Math.min(1,value));invalidate();}
     public float[] getHsv(){return hsv.clone();}

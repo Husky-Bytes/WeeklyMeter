@@ -5,6 +5,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import java.util.function.BooleanSupplier;
 final class R {static final class drawable {static final int ic_meter=1;}}
+final class Texts {static java.util.Locale locale(Context c){return java.util.Locale.KOREAN;}}
 final class WeeklyWidget {static int renders;static void renderAll(Context c){renders++;}}
 final class Store {
  static final Prefs values=new Prefs();
@@ -33,4 +34,3 @@ final class Repo {
  static String friendly(Exception error){return "Synthetic request failed";}
  static void reset()throws Exception{IO.submit(()->{}).get(3,TimeUnit.SECONDS);syncCalls.set(0);reconcileCalls.set(0);vaultConnected=true;rotationSaved=false;outcome=SyncOutcome.UPDATED;action=stopped->{};}
 }
-

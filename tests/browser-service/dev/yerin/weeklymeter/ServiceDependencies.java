@@ -4,6 +4,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 final class MainActivity { }
+final class Texts { static java.util.Locale locale(android.content.Context c){return java.util.Locale.KOREAN;} }
 final class R { static final class drawable { static final int ic_meter=1; } }
 final class Scheduler { static void ensure(android.content.Context context) { } }
 final class WeeklyWidget { static void renderAll(android.content.Context context) { } }
@@ -28,6 +29,7 @@ final class BrowserAuth {
         while (true) try { releaseBind.await(3,TimeUnit.SECONDS);break; } catch (InterruptedException ignore) { interrupted=true; }
         if(interrupted)Thread.currentThread().interrupt();return session;
     }
+    static Session bind(java.util.Locale locale) throws IOException { return bind(); }
     static final class Result {
         final String code;final boolean denied;
         Result(String code,boolean denied){this.code=code;this.denied=denied;}

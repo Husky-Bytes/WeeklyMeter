@@ -91,7 +91,7 @@ public final class WidgetRefreshService extends Service {
     private void enterForeground(){
         if(foreground)return;
         NotificationManager manager=getSystemService(NotificationManager.class);
-        manager.createNotificationChannel(new NotificationChannel(CHANNEL,"위젯 새로고침",NotificationManager.IMPORTANCE_LOW));
+        manager.createNotificationChannel(new NotificationChannel(CHANNEL,Messages.localize("위젯 새로고침",Texts.locale(this)),NotificationManager.IMPORTANCE_LOW));
         Notification notification=notification("위젯 사용량을 조회하고 있어.");
         if(Build.VERSION.SDK_INT>=29)startForeground(NOTIFICATION,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         else startForeground(NOTIFICATION,notification);
@@ -99,7 +99,7 @@ public final class WidgetRefreshService extends Service {
     }
     private Notification notification(String text){
         return new Notification.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_meter)
-            .setContentTitle("Weekly Meter 새로고침").setContentText(text).setOnlyAlertOnce(true)
+            .setContentTitle(Messages.localize("Weekly Meter 새로고침",Texts.locale(this))).setContentText(Messages.localize(text,Texts.locale(this))).setOnlyAlertOnce(true)
             .setOngoing(true).setCategory(Notification.CATEGORY_SERVICE).setVisibility(Notification.VISIBILITY_PRIVATE).build();
     }
     private void notifyProgress(String text){

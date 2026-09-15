@@ -38,10 +38,10 @@ final class WidgetRenderer {
         float paddingHorizontal=edges.horizontal,paddingVertical=edges.vertical,innerW=edges.innerWidth,innerH=edges.innerHeight;
         float fontScale=Math.max(.5f,Math.min(3,c.getResources().getConfiguration().fontScale));
         LinkedHashSet<String> warnings=new LinkedHashSet<>();List<LineRow> rows=new ArrayList<>();
-        if(edges.paddingAdjusted)warnings.add("1×1에서도 내용을 표시할 수 있도록 내부 여백을 줄였어요.");
+        if(edges.paddingAdjusted)warnings.add(Texts.t(c,"내용에 맞춰 안쪽 여백 조정됨","Inner padding reduced to fit content."));
         long now=System.currentTimeMillis();boolean valid=usage!=null&&!usage.expired(now);TimeZone zone=TimeZone.getDefault();
-        String[] texts={valid?usage.percent():"—%",s.resetDate.format(usage==null?0:usage.resetsAt,zone,"초기화"),
-            s.lastDate.format(usage==null?0:usage.fetchedAt/1000,zone,"조회"),"ChatGPT"};
+        String[] texts={valid?usage.percent():"—%",s.resetDate.format(usage==null?0:usage.resetsAt,zone,Texts.t(c,"초기화","Resets"),Texts.locale(c)),
+            s.lastDate.format(usage==null?0:usage.fetchedAt/1000,zone,Texts.t(c,"조회","Updated"),Texts.locale(c)),"ChatGPT"};
         for(int id:s.order){
             WidgetStyle.Row spec=s.rows[id];if(!spec.enabled)continue;
             if(id==WidgetStyle.BRAND&&s.brandMode==0)continue;
@@ -51,7 +51,7 @@ final class WidgetRenderer {
                 WidgetStyle.DateSpec d=id==WidgetStyle.RESET?s.resetDate:s.lastDate;
                 // Turning every element off is an explicit, supported "hide" choice.
                 if(!d.hasElements())continue;
-                text=d.label?(id==WidgetStyle.RESET?"초기화 —":"조회 —"):"—";
+                text=d.label?(id==WidgetStyle.RESET?Texts.t(c,"초기화 —","Resets —"):Texts.t(c,"조회 —","Updated —")):"—";
             }
             LineRow row=new LineRow();row.id=id;row.spec=spec;row.paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.SUBPIXEL_TEXT_FLAG);
             row.paint.setColor(spec.color);row.paint.setTextSize(spec.sizeSp*fontScale);row.paint.setTypeface(font(c,spec.font,spec.bold,warnings));
@@ -60,36 +60,36 @@ final class WidgetRenderer {
                     row.logo.setTint(luminance(s.background)>.52f?Color.BLACK:Color.WHITE);
                     // The official vector already includes its original clear space.
                     row.logoSize=s.brandLogoSizeSp*fontScale;row.logoSlot=row.logoSize;
-                }catch(Exception e){warnings.add("로고를 불러오지 못해 ChatGPT 문구로 표시했어요.");}
+                }catch(Exception e){warnings.add(Texts.t(c,"로고 불러오기 실패 · 문구로 표시","Logo unavailable · showing text."));}
             }
             if(id==WidgetStyle.BRAND&&s.brandMode==2&&row.hasLogo)text="";
             row.lines=text.isEmpty()?new String[0]:text.split("\n",-1);row.measure();
             if(s.autoFit&&row.width>innerW){
                 for(int pass=0;pass<4&&row.width>innerW;pass++)row.scale(Math.max(.001f,(innerW-.05f)/row.width));
-                warnings.add("좁은 폭에 맞게 일부 글자·로고를 줄였어요.");
+                warnings.add(Texts.t(c,"폭에 맞춰 글자·로고 축소됨","Text or logos reduced to fit width."));
             }
             rows.add(row);
         }
-        if(rows.isEmpty())warnings.add("현재 표시하도록 선택한 행이 없어요.");
+        if(rows.isEmpty())warnings.add(Texts.t(c,"표시 항목 없음","No visible elements selected."));
         WidgetStyle.Spacing spacing=s.spacing(w,h,rows.size());
         float gap=spacing.gap,total=gap*Math.max(0,rows.size()-1);for(LineRow r:rows)total+=r.height;
-        if(spacing.gapAdjusted)warnings.add("행 사이 간격이 내용을 가리지 않도록 간격을 줄였어요.");
+        if(spacing.gapAdjusted)warnings.add(Texts.t(c,"내용에 맞춰 요소 간격 조정됨","Row spacing reduced to fit content."));
         if(s.autoFit&&total>innerH){float factor=Math.max(.01f,(innerH-gap*Math.max(0,rows.size()-1))/Math.max(1,total-gap*Math.max(0,rows.size()-1)));
-            for(LineRow r:rows)r.scale(factor);warnings.add("높이에 맞게 글자·로고를 줄였어요. 더 크게 보려면 행을 줄이거나 위젯을 키워 주세요.");}
+            for(LineRow r:rows)r.scale(factor);warnings.add(Texts.t(c,"높이에 맞춰 축소됨 · 요소를 줄이거나 위젯을 키워 주세요.","Reduced to fit height · show fewer rows or enlarge the widget."));}
         float[] heights=new float[rows.size()],offsets=new float[rows.size()];boolean overflow=false;
-        for(int i=0;i<rows.size();i++){LineRow r=rows.get(i);heights[i]=r.height;offsets[i]=r.spec.offsetY;if(r.width>innerW+.2f)overflow=true;if(r.paint.getTextSize()<6&&r.lines.length>0)warnings.add("1×1에서 일부 글자가 매우 작아요. 행을 줄이거나 크기를 조절해 주세요.");}
+        for(int i=0;i<rows.size();i++){LineRow r=rows.get(i);heights[i]=r.height;offsets[i]=r.spec.offsetY;if(r.width>innerW+.2f)overflow=true;if(r.paint.getTextSize()<6&&r.lines.length>0)warnings.add(Texts.t(c,"작은 글자 주의 · 요소 수나 크기를 조절해 주세요.","Some text is very small · reduce rows or adjust sizes."));}
         WidgetStyle.Placement placement=WidgetStyle.place(h,paddingVertical,heights,offsets,gap);overflow|=placement.overflow;
-        if(placement.adjusted)warnings.add("화면 경계와 행 겹침을 피하도록 세로 위치를 조정했어요.");
+        if(placement.adjusted)warnings.add(Texts.t(c,"겹침 방지를 위해 세로 위치 조정됨","Vertical positions adjusted to avoid overlap."));
         if(overflow){
             LinkedHashSet<String> prioritized=new LinkedHashSet<>();
-            prioritized.add("선택한 크기의 공간을 넘어요. 자동 맞춤을 켜거나 글자·행을 줄여 주세요.");prioritized.addAll(warnings);warnings=prioritized;
+            prioritized.add(Texts.t(c,"공간 부족 · 자동 맞춤을 켜거나 글자·요소를 줄여 주세요.","Content does not fit · enable auto-fit or reduce text/rows."));prioritized.addAll(warnings);warnings=prioritized;
         }
         canvas.save();canvas.clipRect(0,0,w,h);
         for(int i=0;i<rows.size();i++)drawRow(canvas,rows.get(i),placement.tops[i],paddingHorizontal,innerW);
         canvas.restore();
         if(s.feedbackEnabled)drawFeedback(canvas,feedbackState,w,h);
-        String access=(valid?"주간 잔여량 "+texts[0]:"주간 잔여량 확인 필요")+". "+Display.reset(usage)+". "+Display.last(usage);
-        if(!"none".equals(feedbackState))access+=". "+feedbackDescription(feedbackState);
+        String access=(valid?Texts.t(c,"주간 잔여량 ","Weekly remaining ")+texts[0]:Texts.t(c,"주간 잔여량 확인 필요","Weekly remaining needs a refresh"))+". "+Display.reset(c,usage)+". "+Display.last(c,usage);
+        if(!"none".equals(feedbackState))access+=". "+feedbackDescription(c,feedbackState);
         return new Result(bitmap,join(warnings),access,overflow);
     }
     private static void drawRow(Canvas canvas,LineRow row,float top,float padding,float width){
@@ -108,7 +108,7 @@ final class WidgetRenderer {
     private static synchronized Typeface font(Context c,int index,boolean bold,Set<String> warnings){
         Typeface face=Typeface.DEFAULT;
         if(index>0){try{if(FONTS[index]==null)FONTS[index]=Typeface.createFromAsset(c.getAssets(),"fonts/"+ASSET_NAMES[index]);face=FONTS[index];}
-            catch(Exception e){warnings.add("선택한 글꼴을 불러오지 못해 기본 글꼴로 표시했어요.");}}
+            catch(Exception e){warnings.add(Texts.t(c,"글꼴 불러오기 실패 · 기본 글꼴로 표시","Font unavailable · showing the system default."));}}
         return Typeface.create(face,bold?Typeface.BOLD:Typeface.NORMAL);
     }
     private static void drawFeedback(Canvas canvas,String state,float w,float h){
@@ -121,10 +121,10 @@ final class WidgetRenderer {
         else if("running".equals(state)){p.setColor(0xffb8d9ff);canvas.drawArc(cx-size*.34f,cy-size*.34f,cx+size*.34f,cy+size*.34f,-70,285,false,p);}
         else {p.setColor(0xffd1dae5);canvas.drawPoint(cx-size*.3f,cy,p);canvas.drawPoint(cx,cy,p);canvas.drawPoint(cx+size*.3f,cy,p);}
     }
-    static String feedbackDescription(String state){
-        if("success".equals(state))return "새 사용량 조회 성공";if("error".equals(state))return "조회 실패, 앱에서 확인";
-        if("running".equals(state))return "사용량 조회 중";if("waiting".equals(state))return "새로고침 접수, 실행 대기";
-        if("skipped".equals(state))return "중복 요청 또는 재시도 대기";return "";
+    static String feedbackDescription(Context c,String state){
+        if("success".equals(state))return Texts.t(c,"새로고침 완료","Refresh complete");if("error".equals(state))return Texts.t(c,"새로고침 실패 · 앱에서 확인","Refresh failed; check the app");
+        if("running".equals(state))return Texts.t(c,"사용량 조회 중","Refreshing usage");if("waiting".equals(state))return Texts.t(c,"새로고침 대기","Refresh received; waiting to start");
+        if("skipped".equals(state))return Texts.t(c,"중복 요청 또는 재시도 대기","Duplicate request or waiting to retry");return "";
     }
     private static float luminance(int color){return (Color.red(color)*.2126f+Color.green(color)*.7152f+Color.blue(color)*.0722f)/255f;}
     private static String join(Set<String> values){StringBuilder out=new StringBuilder();for(String s:values){if(out.length()>0)out.append('\n');out.append(s);}return out.toString();}

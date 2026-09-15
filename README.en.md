@@ -6,7 +6,7 @@ A small Android widget that runs on your phone—no PC or external relay server 
 
 [한국어](README.md) · [English](README.en.md)
 
-**[Download Android APK · 0.4.0](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.4.0/WeeklyMeter-0.4.0.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.4.0) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
+**[Download Android APK · 0.5.0](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.5.0/WeeklyMeter-0.5.0.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.5.0) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
 
 ![Illustrative concept showing compact WeeklyMeter widgets and customization possibilities](docs/images/weeklymeter-overview.png)
 
@@ -22,20 +22,24 @@ A small Android widget that runs on your phone—no PC or external relay server 
 - **Tap to refresh** — a direct refresh path that does not open the app screen. A check mark appears only after valid new data has been saved.
 - **Make it fit your home screen** — color wheel, transparency, fonts, per-row text sizes, ordering, position, and internal padding.
 - **Choose each date/time component** — reset time and last successful update have independent formats. Time only is an option.
-- **Preview stays visible while editing** — edit one category or element at a time. Styling is shared by all installed widgets.
+- **Preview stays visible while editing** — choose from four descriptive cards, then a separate element picker. Styling is shared by all installed widgets.
+- **Korean, English, and localized app names** — the default follows your primary system language, with a globe selector for manual choices. No additional permission is needed.
+- **An icon shaped by your launcher** — adaptive layers let the phone apply its usual rounded icon shape.
 - **Sign in through your phone browser** — enter your password only on the official OpenAI login page. No PC or relay server is required.
 
 ## Get started
 
-Targets Android 8.0 and later. Designed with Galaxy S25 Ultra in mind, but actual S25 Ultra / One UI behavior has not yet been verified. **The app interface is currently Korean; this page is an English documentation translation.**
+Targets Android 8.0 and later. Designed with Galaxy S25 Ultra in mind, but actual S25 Ultra / One UI behavior has not yet been verified.
+
+On first launch, the app uses **Korean when your primary system language is Korean, and English otherwise**. It does not inspect country or location and needs no additional permission. Use the **globe at the top → System default / 한국어 / English** to change it. The app name is **주간 잔여량** in Korean and **WeeklyMeter** in English.
 
 1. Download the **APK** above. When updating an existing installation, install the same-signature APK over it without uninstalling the app first.
-2. In the app, choose **ChatGPT로 로그인 → 브라우저 열기** (Sign in with ChatGPT → Open browser). Enter your password only on the official OpenAI page in your phone browser.
+2. In the app, choose **Sign in with ChatGPT → Open browser**. Enter your password only on the official OpenAI page in your phone browser.
 3. Return to the app after signing in. The first connection requests usage once. Select the same weekly limit shown on the official usage screen.
-4. Add a WeeklyMeter widget to your home screen. Open **위젯 꾸미기** (Widget styling) in the app; changes are saved automatically.
+4. Add a WeeklyMeter widget to your home screen. Open **Customize widget** in the app; changes are saved automatically.
 5. Tap the widget to refresh. Enable **last successful update** to tell when new data was received even if the percentage stays the same.
 
-Automatic refresh can be scheduled every 15 / 30 / 60 minutes while a widget is installed. Successful automatic updates also change the displayed usage and update time. **Opening the app or changing its style does not trigger a network refresh.** Android battery and network restrictions may delay scheduled work; this is not a real-time display.
+Automatic refresh can be scheduled every 15 / 30 / 60 minutes while a widget is installed. Successful automatic updates also change the displayed usage and update time. **Opening the app or changing language/style does not trigger a network refresh.** Android battery and network restrictions may delay scheduled work; this is not a real-time display.
 
 ## Before connecting your account
 
@@ -55,7 +59,7 @@ The app code only performs authentication exchange/refresh and usage requests. I
 - Four bundled fonts accompany the default font: Nanum Gothic, Jua, Nanum Myeongjo, and Nanum Gothic Coding. No additional font download is needed. Text sizes range from 6 to 96sp in 0.5sp steps.
 - Configure year, month, day, weekday, hour, minute, second, and AM/PM separately for both time rows. Choose date only, time only, or neither, plus 12/24-hour time, leading zeros, date separator, one/two lines, and optional labels.
 - Pick colors using a color wheel, brightness, HEX input, or recent colors. Adjust background opacity, corners, and automatic fitting.
-- A pinned preview sits above category/element-specific settings instead of expanding every element's controls at once.
+- The pinned preview sits above four descriptive cards: Text & dates, Layout & spacing, Background, and Refresh feedback. A separate element picker replaces the second tab row. Redundant explanations were removed, and Korean wording is concise and polite.
 - Disable automatic spacing to adjust horizontal/vertical internal padding from 0 to 32dp and row spacing from 0 to 16dp, in 0.5dp steps. Excessive padding is limited to preserve content space at 1×1. This does not remove margins reserved outside the widget by the launcher.
 - Choose no ChatGPT identifier, text, logo, or both. Logo size is adjustable; its original shape and clear space are preserved in black/white. It does not indicate an official app.
 - 1×1 / 2×1 example previews and overflow warnings are provided. Actual home-screen dimensions, background, and text scaling can differ.
@@ -92,16 +96,29 @@ This is an unofficial Android implementation based on the public Codex authentic
 
 </details>
 
+<details>
+<summary>Language, app-name, and icon differences between Android versions</summary>
+
+System default considers only the primary system language. English first and Korean second still selects English. Changing language redraws existing widget data without querying the account, and preserves selected date elements, fonts, and styling.
+
+Android 13+ integrates with per-app languages. Automatic mode pins the resolved single language in Android to avoid choosing a secondary Korean language. Android Settings may therefore show Korean or English while the app's globe selector still shows System default. To return to automatic selection, choose System default in the app's globe menu.
+
+The name inside the app follows the selected language. Depending on Android and the launcher, home-screen labels may follow the system language or remain cached instead of following the app's manual choice. Manual selection does not guarantee a launcher-name change; actual One UI behavior has not been verified.
+
+The launcher masks the adaptive foreground/background into the phone's circle, rounded square, or other shape. An Android 13+ monochrome resource is also supplied for supported launchers' themed icons. The app does not force one corner shape on every phone. Actual S25 Ultra icon/themed-icon rendering remains unverified.
+
+</details>
+
 ## Version and verification
 
-0.4.0 moves manual widget refresh into a short direct foreground service and adds internal spacing controls and compact category-based settings. The earlier font asset-path fix and existing login, usage, and style settings are retained. [Full changelog (Korean)](CHANGELOG-0.4.0.md)
+0.5.0 adds Korean/English automatic selection, a globe language selector, localized app names, and an adaptive icon. Four descriptive settings cards and shorter wording simplify customization. Existing tap-to-refresh, login, usage, and style settings are retained. [Full changelog · Korean / English](CHANGELOG-0.5.0.md)
 
-The full Windows Android build, APK generation/alignment/signature verification, **1,081 executable checks**, and consistency checks across 10 XML files/resources passed. These include local logic/file checks and Android test doubles—not successful real-device or live-account tests. [Detailed results and unverified areas](TEST-RESULTS.txt)
+The full Windows Android build, APK generation/alignment/signature verification, **4,136 executable checks**, 49 static adaptive-icon structure/geometry checks, and consistency checks across 18 XML files/resources passed. These include local logic/file checks and Android test doubles—not successful real-device or live-account tests. [Detailed results and unverified areas](TEST-RESULTS.txt)
 
 <details>
 <summary>Build from source / verify the download</summary>
 
-Verified Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 6.
+Verified Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 7.
 
 ```powershell
 .\build-apk.ps1 -Project . -BuildDirectory ..\build-current -SigningDirectory ..\private-signing -Sdk D:\Android\Sdk -Jdk 'C:\Program Files\Android\Android Studio\jbr'
@@ -111,10 +128,10 @@ Replace SDK/JDK paths with your local installation paths and use a fresh `BuildD
 
 On Linux, set `ANDROID_HOME` and run `bash build-apk.sh`. A full Linux build and byte-for-byte reproducibility have not been verified. Raw build logs containing personal local paths are excluded from the public distribution.
 
-SHA-256 of the published `WeeklyMeter-0.4.0.apk`:
+SHA-256 of the published `WeeklyMeter-0.5.0.apk`:
 
 ```text
-51745cb24a40efdbc6b42893c1f8b3775ba5afb45dd9da5c83edd6e35e325421
+4c5bf928989dfbc38ab45e7faddec7ba208a420fdc12086e35f93ace385ee193
 ```
 
 A matching hash verifies file identity, not the safety of the app.
