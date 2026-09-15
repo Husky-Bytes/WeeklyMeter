@@ -4,3 +4,4 @@ app/src/main/assets/** -text
 *.ttf binary
 *.apk binary
 *.zip binary
+*.png binary
