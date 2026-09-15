@@ -59,4 +59,4 @@ Windows 검증 환경: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Pyth
 
 매번 새 BuildDirectory를 지정합니다. 결과는 해당 폴더의 dist/WeeklyMeter.apk입니다. 기존 앱에 업데이트하려면 같은 서명 키가 필요합니다. 키·암호·계정정보를 소스나 배포 파일에 넣지 마세요. Linux에서는 ANDROID_HOME을 지정한 뒤 bash build-apk.sh를 실행합니다. Linux 전체 빌드는 별도 미검증입니다.
 
-TEST-RESULTS.txt와 검증 로그는 실제 수행한 검사 범위를 기록합니다. 가짜 서버·저장소·Android 작업 검사와 실제 폰 시험은 다릅니다. 실계정 로그인·Keystore·One UI 홈 화면·재부팅·절전·장시간 동작은 아직 확인해야 합니다.
+TEST-RESULTS.txt는 실제 수행한 검사 범위를 기록합니다. 개인 로컬 경로가 포함된 원본 빌드 로그는 공개 배포에서 제외합니다. 가짜 서버·저장소·Android 작업 검사와 실제 폰 시험은 다릅니다. 실계정 로그인·Keystore·One UI 홈 화면·재부팅·절전·장시간 동작은 아직 확인해야 합니다.
