@@ -1,4 +1,4 @@
-WeeklyMeter 0.5.1 — automatic widget publication and background recovery, 2026-09-18
+WeeklyMeter 0.5.2 — power/background status and user-controlled settings, 2026-09-19
 
 PASS: 49 core parsing/network-boundary checks.
 PASS: 71 usage/JSON/bucket scenarios, including 1001 percentage samples.
@@ -6,7 +6,7 @@ PASS: 1096 widget-style/date/layout/bitmap-budget/internal-spacing checks, pure 
 PASS: 40 manual-refresh feedback/expiry checks, pure Java.
 PASS: 12 actual bundled font parsing/Korean-numeric glyph/license checks, JDK AWT.
 PASS: 91 authentication/refresh checks, real Api/Repo with fake HTTPS and storage.
-PASS: 91 periodic scheduler/job/feedback lifecycle checks with Android/Repo doubles.
+PASS: 142 periodic scheduler/job/feedback/diagnostic lifecycle checks with Android/Repo doubles.
 PASS: 287 browser PKCE/callback checks, including synthetic real loopback sockets.
 PASS: 28 browser login service lifecycle checks with fake Android/browser/Repo.
 PASS: 64 manual foreground service checks with real service/Scheduler/UsageJob/Feedback
@@ -17,27 +17,68 @@ messages use concise/formal Korean or English at display time. Unknown labels re
 unchanged. No translation network is used.
 PASS: 39 primary-system-language/manual-choice policy checks, pure Java.
 PASS: 59 Android language API/context/preference/receiver checks with platform doubles.
+PASS: 1006 read-only background-access checks with production BackgroundAccess and
+synthetic Android power/activity/job services. No phone settings are changed.
 PASS: 309 widget-publication checks using production WeeklyWidget/Store/Usage/style
 code with fake Android, host, Bitmap and renderer. These inspect publication payloads,
 not real Canvas pixels or launcher behavior.
 PASS: 36 APK asset checks: raw ZIP paths, duplicates, exact ten names, bytes/lengths.
 The 36 checks run before signing AND on the signed final APK; counted only once.
-TOTAL: 4499 executable Java logic/lifecycle/font/APK checks.
-Increase over 0.5.0: 51 lifecycle + 3 localization + 309 widget publication checks.
+TOTAL: 5556 executable Java logic/lifecycle/font/APK checks.
+Increase over 0.5.1: 51 lifecycle/diagnostic + 1006 background-access checks.
+The 1001 sampled percentages are part of the 71 usage scenarios, not an extra total.
 No real account or Android device is represented by these tests.
 PASS: 49 additional static adaptive-icon resource and safe-zone geometry checks.
 PASS: 18 XML files, resource references, manifest components and restricted permissions.
 PASS: Full Windows Android compilation, DEX, alignment, signing and APK verification.
 
 Build: JDK 21.0.8; Android platform 36; build-tools 35.0.0; minSdk26/targetSdk35.
-Package dev.yerin.weeklymeter; versionCode8/versionName0.5.1.
+Package dev.yerin.weeklymeter; versionCode9/versionName0.5.2.
 Compiled locales: default English, explicit English, Korean.
 Compiled application labels: WeeklyMeter / 주간 잔여량.
 APK signature v2/v3 verified; preserved personal update signing certificate.
-APK SHA256: f4b22b9caa3f1b0d31b1a8a778f32ede1073e0ed321503bbc34d8f45a9699f1c
+APK size: 3627068 bytes; zipalign -c 4 passed.
+APK SHA256: e56ddad5ab55b2510b341100643f8292306fb76bc651ae6143e209e1d5cbd501
 Certificate SHA256: abfc4290289a8df7abffe951cf096fcd1fbe3972f0887d95390bab5a4d5816ab
 
-Automatic-refresh regressions reproduced with deterministic Android/Repo doubles:
+0.5.2 battery/background guidance and diagnostics:
+BackgroundAccess tests exercise API26/27/28/33/34/35/36, power saver and exemption
+combinations, API-gated background restriction/pending-job reads, absent jobs/services,
+known and future reasons, and independent permission/runtime/linkage failures.
+Unavailable status is not labeled unrestricted or unscheduled. An executing reason
+and an unavailable read can share a raw number; their display hints remain distinct.
+Checks also cover a job disappearing between reads and fresh values on later reads.
+Only this package and its periodic job are inspected. The settings intent opens the
+generic optimization list, not a direct exemption request.
+
+Added lifecycle/diagnostic checks cover first-use empty records, separate preferences,
+current-generation ownership, fixed outcome labels, no secret-shaped arbitrary text,
+cache-only publication retries, unsupported/failed platform stop-reason reads, and
+storage failure. Old completion/stop/publication callbacks cannot replace newer
+diagnostics. Actual query success and publication failure remain distinct; a recorded
+OS stop can coexist with a late, known successful query/publication. Diagnostic read
+failure is unavailable, not evidence that no job ever ran. Storage failures cannot
+block account work, widget publication or normal job completion.
+
+Status records start in 0.5.2 and are best-effort local metadata, not an immutable
+event log. Tokens, callback codes, server bodies and raw exception logs are not
+diagnostic fields. A missing completion does not prove a job is still running.
+Widget delivery means an update reached the Android host interface, not visual
+confirmation of the home screen.
+
+MainActivity source review and resource checks confirm the status dialog / Check again
+read status without a usage query or resetting a job interval. Settings are chosen by
+the user in Android. No Samsung sleeping-list inspection or automatic policy change,
+new alarm, permission, persistent service, notification or extra usage fetch is added.
+Existing short browser-login and manual-refresh foreground services remain.
+
+This is settings guidance and observability, not a verified fundamental fix for
+automatic refresh during Samsung power saving. An app optimization exception is not
+proof that device-wide background-data restrictions or job quotas are lifted.
+The user's specific cause and behavior with each phone setting remain unverified.
+
+
+Retained 0.5.1 automatic-refresh regressions, rerun with deterministic Android/Repo doubles:
 1. A false cached connection flag rejected a periodic job before a valid saved
    credential session could be reconciled after a cold background start.
 2. A job stop after saving fresh usage but before its main-thread completion
@@ -110,7 +151,10 @@ real Canvas/widget/settings/keyboard rendering; Galaxy S25 Ultra/One UI 1x1 allo
 launcher icon masks/label caching/language changes, reboot/Doze/long-term login retention;
 the user's actual automatic-update failure and corrected long-running automatic
 publication on S25 Ultra/One UI, real host update failures or device process races;
+actual Android battery-settings navigation, Samsung sleeping/deep-sleep/never-sleep
+lists, real pending-job reasons and behavior under each power-saving configuration;
 live usage vs official screen; Linux full build or byte-for-byte reproducibility.
+The adb device inventory command succeeded, but no Android device was connected.
 No device result is claimed. Automatic refresh cannot prevent revocation or ensure
 permanent login. Test/build success is not a guarantee that account connection is safe;
 the unofficial authentication tokens are not restricted to read-only usage access.

@@ -6,7 +6,7 @@ A small Android widget that runs on your phone—no PC or external relay server 
 
 [한국어](README.md) · [English](README.en.md)
 
-**[Download Android APK · 0.5.1](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.5.1/WeeklyMeter-0.5.1.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.5.1) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
+**[Download Android APK · 0.5.2](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.5.2/WeeklyMeter-0.5.2.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.5.2) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
 
 ![Illustrative concept showing compact WeeklyMeter widgets and customization possibilities](docs/images/weeklymeter-overview.png)
 
@@ -19,6 +19,7 @@ A small Android widget that runs on your phone—no PC or external relay server 
 ## Small widget. Your choice of details.
 
 - **Start at 1×1, resize as needed** — show only the percentage or add selected rows. Actual minimum size and cell allocation depend on your launcher.
+- **Inspect power and automatic-refresh status** — view battery restrictions and recent automatic-work metadata, then open phone settings yourself. This does not bypass power policy.
 - **Tap to refresh** — a direct refresh path that does not open the app screen. A check mark appears only after valid new data has been saved.
 - **Make it fit your home screen** — color wheel, transparency, fonts, per-row text sizes, ordering, position, and internal padding.
 - **Choose each date/time component** — reset time and last successful update have independent formats. Time only is an option.
@@ -40,6 +41,16 @@ On first launch, the app uses **Korean when your primary system language is Kore
 5. Tap the widget to refresh. Enable **last successful update** to tell when new data was received even if the percentage stays the same.
 
 Automatic refresh can be scheduled every 15 / 30 / 60 minutes while a widget is installed. Successful automatic refreshes publish both usage and the last successful refresh time to the widget. Version 0.5.1 fixes skipped background connection restoration and dropped widget publication after saving. **Opening the app or changing language/style does not trigger a network refresh.** Android battery and network restrictions may delay scheduled work; this is not a real-time display.
+
+## When automatic refresh is delayed in power saving
+
+Open **Auto refresh · Battery settings** for power saving, battery-optimization exemption, app background restriction, scheduled-job state, and recent automatic attempts/results. **Check again** only reads status; it does not fetch usage. Unsupported information is shown as unavailable; a scheduled job does not mean execution at an exact time.
+
+Choose **Battery settings → App battery settings** or **Optimization exceptions**, then select Unrestricted / Don't optimize for this app yourself. Check Samsung sleeping/deep-sleep lists and add it to Never sleeping apps where available. One UI menu names/locations vary; this can increase battery use. [Samsung guidance](https://www.samsung.com/us/support/galaxy-battery/optimization/)
+
+An app exception does not disable device-wide power saving. Android scheduling or manufacturer background-data restrictions can still prevent refresh. **The app neither changes settings for you nor bypasses restrictions.** [Android resource limits](https://developer.android.com/topic/performance/power/power-details) · [Setup and release notes](CHANGELOG-0.5.2.md)
+
+Recent attempt times, outcomes, stop reasons, and publication results are local metadata recorded from 0.5.2 onward. A missing record or missing completion alone cannot establish the cause. They do not collect or upload tokens, authorization codes, HTTP contents, or raw logs. Publication success means an update was passed to Android, not that the actual home screen was visually observed changing. The cause and resolution of the user's S25 Ultra power-saving behavior have not been verified on the device.
 
 ## Before connecting your account
 
@@ -113,14 +124,14 @@ The launcher masks the adaptive foreground/background into the phone's circle, r
 
 ## Version and verification
 
-0.5.1 fixes paths where automatic usage could be skipped before saved credentials were restored, or a widget update could be dropped after usage was saved. Multiple widgets and overlapping renders are also protected. Existing language, icon, customization, login, and tap-to-refresh behavior remain. [Full changelog · Korean / English](CHANGELOG-0.5.1.md)
+0.5.2 adds read-only power/background/job status, recent automatic-work metadata, and user-controlled battery-setting guidance. JobScheduler and the 0.5.1 connection-recovery/publication fixes remain; no alarms, extra permissions, or extra usage requests are added. [Full changelog · Korean / English](CHANGELOG-0.5.2.md)
 
-The full Windows Android build, APK generation/alignment/signature verification, **4,499 executable checks**, adaptive-icon checks, and XML/resource consistency checks passed. These include local logic/file checks and Android test doubles—not successful real-device or live-account tests. [Detailed results and unverified areas](TEST-RESULTS.txt)
+The full Windows Android build, APK alignment/signature verification, **5,556 executable checks**, 49 static icon checks, and checks across 18 XML files/resources passed. [Detailed results](TEST-RESULTS.txt). These cover settings guidance, diagnostics, local logic and Android test doubles—not real-device/live-account success or a verified fix for automatic refresh during power saving.
 
 <details>
 <summary>Build from source / verify the download</summary>
 
-Verified Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 8.
+Verified Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 9.
 
 ```powershell
 .\build-apk.ps1 -Project . -BuildDirectory ..\build-current -SigningDirectory ..\private-signing -Sdk D:\Android\Sdk -Jdk 'C:\Program Files\Android\Android Studio\jbr'
@@ -130,10 +141,10 @@ Replace SDK/JDK paths with your local installation paths and use a fresh `BuildD
 
 On Linux, set `ANDROID_HOME` and run `bash build-apk.sh`. A full Linux build and byte-for-byte reproducibility have not been verified. Raw build logs containing personal local paths are excluded from the public distribution.
 
-SHA-256 of the published `WeeklyMeter-0.5.1.apk`:
+SHA-256 of the published `WeeklyMeter-0.5.2.apk`:
 
 ```text
-f4b22b9caa3f1b0d31b1a8a778f32ede1073e0ed321503bbc34d8f45a9699f1c
+e56ddad5ab55b2510b341100643f8292306fb76bc651ae6143e209e1d5cbd501
 ```
 
 A matching hash verifies file identity, not the safety of the app.

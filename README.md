@@ -6,7 +6,7 @@ PC나 외부 중계 서버 없이 폰에서 동작하는 Android 위젯입니다
 
 [한국어](README.md) · [English](README.en.md)
 
-**[Android APK 다운로드 · 0.5.1](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.5.1/WeeklyMeter-0.5.1.apk)** · [변경 내용 / 릴리스](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.5.1) · [문제 제보 / 제안](https://github.com/Husky-Bytes/WeeklyMeter/issues)
+**[Android APK 다운로드 · 0.5.2](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.5.2/WeeklyMeter-0.5.2.apk)** · [변경 내용 / 릴리스](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.5.2) · [문제 제보 / 제안](https://github.com/Husky-Bytes/WeeklyMeter/issues)
 
 ![WeeklyMeter의 작은 위젯과 꾸미기 방향을 보여주는 예시 이미지](docs/images/weeklymeter-overview.png)
 
@@ -19,6 +19,7 @@ PC나 외부 중계 서버 없이 폰에서 동작하는 Android 위젯입니다
 ## 작게 놓고, 원하는 것만 보기
 
 - **1×1부터, 크기 조절 가능** — 퍼센트만 두거나 필요한 행만 선택합니다. 실제 최소 크기와 칸 배치는 런처에 따라 달라집니다.
+- **절전·자동 조회 상태 확인** — 배터리 제한과 최근 자동 작업 기록을 확인하고, 폰의 배터리 설정을 직접 열 수 있습니다. 절전 정책을 우회하는 기능은 아닙니다.
 - **탭해서 새로고침** — 앱 화면을 열지 않는 직접 조회 경로입니다. 실제 새 데이터 저장에 성공했을 때만 체크를 표시합니다.
 - **내 홈 화면에 맞는 스타일** — 컬러휠, 투명도, 글꼴, 행별 글자 크기, 순서, 위치, 내부 여백을 조절합니다.
 - **날짜도 필요한 부분만** — 초기화와 마지막 성공 조회 시각을 각각 설정합니다. 날짜 없이 시간만 표시해도 됩니다.
@@ -40,6 +41,16 @@ Android 8.0 이상을 대상으로 합니다. Galaxy S25 Ultra를 염두에 두�
 5. 위젯을 눌러 새로 조회합니다. **마지막 성공 조회 시각**을 켜 두면 퍼센트가 그대로여도 갱신 여부를 알 수 있습니다.
 
 자동 조회는 15 / 30 / 60분 중 선택하며 위젯이 있을 때만 예약합니다. 성공한 자동 조회는 위젯에 사용량과 마지막 성공 조회 시각을 함께 게시합니다. 0.5.1에서는 백그라운드 연결 복원과 저장 후 위젯 갱신이 빠질 수 있는 경로를 수정했습니다. **앱을 열거나 언어·꾸미기 설정만 바꿔서는 네트워크 조회를 시작하지 않습니다.** Android 절전·네트워크 제한 때문에 자동 조회가 늦어질 수 있으며 실시간 표시를 보장하지 않습니다.
+
+## 절전 모드에서 자동 조회가 늦을 때
+
+앱의 **자동 조회 상태 · 절전 설정**에서 절전 모드·배터리 최적화 예외·백그라운드 제한·예약 작업 상태와 최근 자동 시도·결과를 확인합니다. **다시 확인**은 상태만 다시 읽으며 사용량을 조회하지 않습니다. 읽을 수 없는 플랫폼 상태는 확인 불가이며, 예약됨은 정해진 시각의 실행을 보장한다는 뜻이 아닙니다.
+
+상태 창에서 **절전 설정 → 앱 배터리 설정** 또는 **최적화 예외 설정**을 열어 이 앱의 제한 없음 / 최적화 안 함을 직접 선택할 수 있습니다. 삼성의 절전·초절전 목록도 폰 설정에서 확인하고, 가능한 경우 절전 예외 앱에 추가합니다. 이름·위치는 One UI에 따라 다르며 배터리 사용이 늘 수 있습니다. [삼성 배터리 안내](https://www.samsung.com/us/support/galaxy-battery/optimization/)
+
+앱별 예외가 폰 전체 절전 모드까지 해제하지는 않습니다. Android 예약 제한이나 제조사의 백그라운드 데이터 제한이 계속되면 자동 조회를 보장할 수 없습니다. **앱은 사용자 설정을 바꾸거나 절전 제한을 우회하지 않습니다.** [Android 제한 안내](https://developer.android.com/topic/performance/power/power-details) · [설정·업데이트 안내](CHANGELOG-0.5.2.md)
+
+최근 자동 작업의 시각·결과·중지 사유·위젯 게시 결과는 로컬 상태값이며 0.5.2부터 기록합니다. 기록 없음이나 완료 기록 없음만으로 정확한 중단 원인을 알 수는 없습니다. 토큰·인증 코드·HTTP 내용·원본 로그를 모으거나 외부로 보내지 않습니다. 게시 성공은 Android에 갱신을 전달했다는 뜻이며 실제 홈 화면이 바뀌었음을 관찰한 결과는 아닙니다. 사용자 S25 Ultra의 원인이나 절전 상태에서의 해결 여부는 실기기로 검증하지 못했습니다.
 
 ## 계정을 연결하기 전에
 
@@ -113,14 +124,14 @@ Android 13 이상은 앱별 언어 기능과 연동합니다. 시스템 설정 �
 
 ## 이번 버전과 검사 결과
 
-0.5.1은 자동 조회에서 저장된 연결을 복원하지 못해 조회가 건너뛰어지거나, 조회값 저장 후 위젯 갱신이 빠질 수 있는 경로를 수정합니다. 여러 위젯·동시 갱신도 보호합니다. 기존 언어·아이콘·꾸미기·로그인과 탭 새로고침은 유지합니다. [전체 변경 안내 · 한국어 / English](CHANGELOG-0.5.1.md)
+0.5.2는 절전·백그라운드 제한과 예약 상태 확인, 최근 자동 작업 기록, 사용자가 직접 선택하는 배터리 설정 안내를 추가합니다. JobScheduler 주기와 0.5.1의 연결 복원·게시 수정은 유지하며 알람·추가 권한·추가 조회는 넣지 않습니다. [전체 변경 안내 · 한국어 / English](CHANGELOG-0.5.2.md)
 
-Windows 전체 Android 빌드, APK 생성·정렬·서명 확인, **4,499개 실행 검사**, 적응형 아이콘과 XML·리소스 일관성 검사를 통과했습니다. 이 수치는 로컬 로직·파일 검사와 대체 Android 환경 테스트이며, 실기기·실계정 성공을 뜻하지 않습니다. [검사 항목과 미검증 범위](TEST-RESULTS.txt)
+Windows Android 전체 빌드·APK 정렬·서명 확인, **5,556개 실행 검사**, 아이콘 정적 검사 49개와 XML 18개·리소스 검사를 통과했습니다. [상세 검사 기록](TEST-RESULTS.txt). 이는 설정 안내·진단과 로컬 로직·대체 Android 환경 검사이며, 실기기·실계정 성공이나 절전 중 자동 조회 문제의 해결을 검증한 것은 아닙니다.
 
 <details>
 <summary>직접 빌드 / APK 무결성 확인</summary>
 
-Windows 검증 환경: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. 앱은 minSdk 26 / targetSdk 35, 패키지 `dev.yerin.weeklymeter`, versionCode 8입니다.
+Windows 검증 환경: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. 앱은 minSdk 26 / targetSdk 35, 패키지 `dev.yerin.weeklymeter`, versionCode 9입니다.
 
 ```powershell
 .\build-apk.ps1 -Project . -BuildDirectory ..\build-current -SigningDirectory ..\private-signing -Sdk D:\Android\Sdk -Jdk 'C:\Program Files\Android\Android Studio\jbr'
@@ -130,10 +141,10 @@ Windows 검증 환경: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Pyth
 
 Linux에서는 `ANDROID_HOME`을 지정한 뒤 `bash build-apk.sh`를 실행합니다. Linux 전체 빌드와 바이트 단위 재현 가능성은 별도 미검증입니다. 개인 로컬 경로가 포함된 원본 빌드 로그는 공개 배포에서 제외했습니다.
 
-배포 APK `WeeklyMeter-0.5.1.apk`의 SHA-256:
+배포 APK `WeeklyMeter-0.5.2.apk`의 SHA-256:
 
 ```text
-f4b22b9caa3f1b0d31b1a8a778f32ede1073e0ed321503bbc34d8f45a9699f1c
+e56ddad5ab55b2510b341100643f8292306fb76bc651ae6143e209e1d5cbd501
 ```
 
 해시 일치는 다운로드 파일의 동일성을 확인하는 수단이지 앱의 안전 보증이 아닙니다.

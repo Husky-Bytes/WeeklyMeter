@@ -75,16 +75,109 @@ public final class MainActivity extends Activity {
             gap(content,12);Switch auto=new Switch(this);auto.setText(t("자동 새로고침","Automatic refresh"));auto.setTextColor(TEXT);auto.setChecked(Store.prefs(this).getBoolean("auto",true));auto.setPadding(0,dp(12),0,dp(12));
             auto.setOnCheckedChangeListener((b,value)->{Store.prefs(this).edit().putBoolean("auto",value).apply();Scheduler.ensure(this);});content.addView(auto,new LinearLayout.LayoutParams(-1,-2));
             button(t("자동 조회 간격 · ","Refresh interval · ")+Store.prefs(this).getInt("minutes",15)+t("분"," min"),false,()->new AlertDialog.Builder(this).setTitle(t("자동 조회 간격","Refresh interval")).setItems(new String[]{t("15분","15 minutes"),t("30분","30 minutes"),t("60분","60 minutes")},(d,which)->{Store.prefs(this).edit().putInt("minutes",new int[]{15,30,60}[which]).apply();Scheduler.ensure(this);render();}).show());
-            button(t("배터리 설정","Battery settings"),false,()->open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName()))));button(t("연결 해제","Disconnect"),false,this::disconnect);
+            button(t("연결 해제","Disconnect"),false,this::disconnect);
         }else{
             if(!login.message.isEmpty())text(content,login.message,13,MUTED,false);
             button(t("ChatGPT로 로그인","Sign in with ChatGPT"),true,this::consent);button(t("저장된 연결 정보 초기화","Clear saved connection"),false,this::disconnect);
         }
+        button(t("자동 조회 상태 · 절전 설정","Auto refresh · Battery settings"),false,this::automaticStatus);
         gap(content,20);button(t("공식 사용량 화면","Official usage page"),false,()->browser("https://chatgpt.com/codex/settings/usage"));
-        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" 0.5.1")
+        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" 0.5.2")
             .setMessage(t("Codex의 주간 잔여량을 표시하는 비공식 위젯입니다. 일반 ChatGPT 모델의 통합 한도는 아닙니다.","An unofficial widget for the Codex weekly quota, not a combined limit for ChatGPT models."))
             .setPositiveButton("GitHub",(d,w)->browser("https://github.com/Husky-Bytes/WeeklyMeter")).setNegativeButton(t("닫기","Close"),null).show());
         button(t("글꼴 라이선스 · 상표 안내","Font licenses · Trademarks"),false,this::notices);
+    }
+    private void automaticStatus(){
+        // Read-only: checking system restrictions must not fetch usage or reset a job's interval.
+        BackgroundAccess.Snapshot access=BackgroundAccess.read(this);
+        AutoRefreshDiagnostics.Snapshot last=AutoRefreshDiagnostics.read(this);
+        StringBuilder status=new StringBuilder();
+        status.append(t("자동 조회: ","Automatic refresh: ")).append(Store.prefs(this).getBoolean("auto",true)?t("켜짐","On"):t("꺼짐","Off"));
+        status.append("\n").append(t("절전모드: ","Power saving: ")).append(yesNo(access.powerSave));
+        status.append("\n").append(t("배터리 최적화 예외: ","Battery optimization exception: ")).append(access.batteryExempt==1?t("허용됨","Allowed"):access.batteryExempt==0?t("미허용","Not allowed"):t("확인 불가","Unknown"));
+        status.append("\n").append(t("백그라운드 실행 제한: ","Background restriction: ")).append(yesNo(access.backgroundRestricted));
+        status.append("\n").append(t("조회 예약: ","Scheduled job: ")).append(access.scheduled==1?t("등록됨","Registered"):access.scheduled==0?t("없음","None"):t("확인 불가","Unknown"));
+        status.append("\n").append(t("현재 예약 상태: ","Current job state: ")).append(pendingText(access.pendingHint));
+        status.append("\n\n").append(t("마지막 자동 조회 시작: ","Last automatic start: ")).append(statusTime(last.startedAt));
+        status.append("\n").append(t("결과: ","Result: ")).append(outcomeText(last.outcome));
+        if(last.finishedAt>0)status.append("\n").append(t("종료: ","Finished: ")).append(statusTime(last.finishedAt));
+        if(last.stopReason>=0)status.append("\n").append(t("중단 사유: ","Stop reason: ")).append(stopText(last.stopReason));
+        status.append("\n").append(t("마지막 자동 조회 성공: ","Last automatic success: ")).append(statusTime(last.succeededAt));
+        status.append("\n").append(t("이번 위젯 전달: ","Widget delivery for this attempt: ")).append(!last.publishAttempted?t("기록 없음","Not recorded"):last.publishSucceeded?t("전달됨","Sent"):t("실패","Failed"));
+        status.append("\n\n").append(t("기록은 이 버전부터 남습니다. 위젯 전달은 홈 화면의 실제 표시 확인과 다릅니다.","Records start with this version. Delivery does not confirm that the home screen displayed the update."));
+        if(access.backgroundRestricted==1||access.batteryExempt==0)
+            status.append("\n\n").append(t("절전 중 조회가 멈추면 아래 절전 설정에서 이 앱의 제한을 해제하세요.","If refresh pauses during power saving, allow this app in Battery settings below."));
+        TextView copy=new TextView(this);copy.setText(status);copy.setTextSize(14);copy.setPadding(dp(20),dp(12),dp(20),dp(12));copy.setTextIsSelectable(true);
+        ScrollView scroll=new ScrollView(this);scroll.addView(copy);
+        new AlertDialog.Builder(this).setTitle(t("자동 조회 상태","Automatic refresh status")).setView(scroll)
+            .setPositiveButton(t("절전 설정","Battery settings"),(d,w)->batteryGuide())
+            .setNeutralButton(t("다시 확인","Check again"),(d,w)->automaticStatus())
+            .setNegativeButton(t("닫기","Close"),null).show();
+    }
+    private void batteryGuide(){
+        new AlertDialog.Builder(this).setTitle(t("절전 중 조회 설정","Refresh during power saving"))
+            .setMessage(t("이 앱만 배터리 제한 예외로 허용하세요.\n\n• 앱 정보 → 배터리 → 제한 없음\n• 최적화 예외 설정 → 전체 앱 → 주간 잔여량 → 최적화 안 함\n• 갤럭시의 초절전 상태 앱에서 제외\n\n기종에 따라 메뉴가 다를 수 있습니다. 배터리 소모가 늘 수 있으며, 강한 절전·데이터 제한에서는 조회가 늦어질 수 있습니다.",
+                "Allow a battery exception for this app.\n\n• App info → Battery → Unrestricted\n• Optimization exceptions → All apps → WeeklyMeter → Don't optimize\n• On Galaxy, remove it from Deep sleeping apps\n\nMenu names may vary. Battery use may increase. Strong power-saving or data restrictions can still delay refresh."))
+            .setPositiveButton(t("최적화 예외 설정","Optimization exceptions"),(d,w)->openBatteryExceptions())
+            .setNeutralButton(t("앱 배터리 설정","App battery settings"),(d,w)->openAppSettings())
+            .setNegativeButton(t("닫기","Close"),null).show();
+    }
+    private void openBatteryExceptions(){
+        try{startActivity(BackgroundAccess.batterySettings(this));}
+        catch(ActivityNotFoundException|SecurityException unavailable){openAppSettings();}
+    }
+    private void openAppSettings(){open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));}
+    private String yesNo(int value){return value<0?t("확인 불가","Unknown"):value==1?t("켜짐","On"):t("꺼짐","Off");}
+    private String statusTime(long value){return value<=0?t("기록 없음","Not recorded"):new java.text.SimpleDateFormat("M.d HH:mm:ss",Texts.locale(this)).format(new Date(value));}
+    private String pendingText(String reason){
+        switch(reason){
+            case "battery":return t("배터리 조건 대기","Waiting for battery conditions");
+            case "network":return t("네트워크 대기","Waiting for a network");
+            case "quota":return t("백그라운드 실행 한도 대기","Waiting for background allowance");
+            case "device":return t("기기 상태로 대기","Waiting due to device state");
+            case "idle":return t("기기 유휴 조건 대기","Waiting for the idle condition");
+            case "optimization":return t("시스템 최적화로 대기","Waiting for system optimization");
+            case "app_restricted":return t("앱 실행 제한","App is restricted");
+            case "running":return t("실행 중","Running");
+            case "latency":return t("예약 시간 대기","Waiting for the scheduled window");
+            case "not_scheduled":return t("예약 없음","Not scheduled");
+            case "unavailable":return t("확인 불가","Unavailable");
+            default:return t("기타 · 사유 미제공","Other / no reason provided");
+        }
+    }
+    private String outcomeText(String outcome){
+        switch(outcome){
+            case "unavailable":return t("기록 확인 불가","Records unavailable");
+            case "running":return t("시작됨 · 완료 기록 없음","Started · no completion recorded");
+            case "updated":return t("조회 성공","Refresh succeeded");
+            case "skipped":return t("최근 요청으로 건너뜀","Skipped after a recent request");
+            case "cancelled":return t("완료 전 취소","Cancelled before completion");
+            case "error":return t("조회 실패","Refresh failed");
+            case "signed_out":return t("저장된 로그인 없음","No saved sign-in");
+            case "stopped":return t("시스템에서 중단","Stopped by the system");
+            case "destroyed":return t("작업 종료","Service ended");
+            case "executor_rejected":return t("조회 시작 실패","Could not start refresh");
+            case "disabled":return t("자동 조회 꺼짐 또는 위젯 없음","Automatic refresh is off or no widget exists");
+            default:return t("기록 없음","Not recorded");
+        }
+    }
+    private String stopText(int reason){
+        switch(reason){
+            case 1:return t("앱에서 예약 취소","Cancelled by the app");
+            case 2:return t("다른 작업에 우선권 부여","Another job took priority");
+            case 3:case 16:return t("실행 시간 제한","Time limit");
+            case 4:return t("기기 상태 · 절전 등","Device state, including power saving");
+            case 5:return t("배터리 부족","Battery low");
+            case 6:return t("충전 조건 변경","Charging condition changed");
+            case 7:return t("네트워크 조건 변경","Network condition changed");
+            case 8:return t("유휴 조건 변경","Idle condition changed");
+            case 9:return t("저장공간 부족","Storage low");
+            case 10:return t("백그라운드 실행 한도","Background execution limit");
+            case 11:return t("백그라운드 제한","Background restriction");
+            case 12:return t("앱 대기 정책","App standby policy");
+            case 13:return t("사용자가 종료","Stopped by the user");
+            default:return t("기타 · ","Other · ")+reason;
+        }
     }
     private void languageHeader(){
         LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);
@@ -126,7 +219,7 @@ public final class MainActivity extends Activity {
     private void chooseBucket(){List<Usage> list=Store.meters(this);String[] labels=new String[list.size()];for(int i=0;i<labels.length;i++)labels[i]=Messages.localize(list.get(i).label,Texts.locale(this))+" · "+list.get(i).percent();
         new AlertDialog.Builder(this).setTitle(t("주간 한도 선택","Choose weekly limit")).setItems(labels,(d,which)->{Store.prefs(this).edit().putString("selected",list.get(which).id).apply();WeeklyWidget.renderAll(this);render();}).show();}
     private void browser(String address){Intent i=new Intent(Intent.ACTION_VIEW,Uri.parse(address));i.addCategory(Intent.CATEGORY_BROWSABLE);open(i);}
-    private void open(Intent i){try{startActivity(i);}catch(ActivityNotFoundException e){localStatus=t("열 수 있는 앱이 없습니다.","No app is available to open this.");render();}}
+    private void open(Intent i){try{startActivity(i);}catch(ActivityNotFoundException|SecurityException e){localStatus=t("열 수 있는 앱이 없습니다.","No app is available to open this.");render();}}
     private LinearLayout card(){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(20),dp(16),dp(20),dp(16));box.setBackground(round(CARD,24));content.addView(box,new LinearLayout.LayoutParams(-1,-2));return box;}
     private TextView text(LinearLayout parent,String s,int size,int color,boolean bold){TextView t=new TextView(this);t.setText(Messages.localize(s,Texts.locale(this)));t.setTextSize(size);t.setTextColor(color);t.setPadding(0,dp(3),0,dp(3));if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);parent.addView(t,new LinearLayout.LayoutParams(-1,-2));return t;}
     private void button(String s,boolean primary,Runnable action){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(14);b.setTextColor(primary?BG:TEXT);b.setBackground(round(primary?ACCENT:CARD,14));b.setMinHeight(dp(50));b.setPadding(dp(12),dp(10),dp(12),dp(10));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=dp(10);lp.bottomMargin=dp(6);content.addView(b,lp);b.setOnClickListener(v->action.run());}

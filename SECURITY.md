@@ -1,4 +1,4 @@
-# WeeklyMeter 0.5.1 보안 범위
+# WeeklyMeter 0.5.2 보안 범위
 
 ## 인증
 
@@ -47,9 +47,19 @@ INTERNET, ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED 외에 FOREGROUND_SERVICE
 
 앱 진입·복귀는 로컬 암호화 세션과 표시만 복구하며 조회하지 않습니다. 최초 로그인·명시적 조회·활성화된 주기 작업만 네트워크 조회를 수행합니다.
 
+## 절전 상태 안내와 로컬 진단
+
+0.5.2는 시스템이 제공하는 절전 모드·배터리 최적화 예외·백그라운드 제한·예약 작업 상태를 읽어 안내합니다. 지원되지 않거나 읽지 못한 상태를 제한 없음으로 추정하지 않습니다. 삼성 절전·초절전 앱 목록을 직접 읽거나 수정하는 기능은 없습니다.
+
+자동 작업의 최근 시도 시각·결과·중지 사유·위젯 게시 결과는 앱 전용 로컬 메타데이터입니다. 토큰·인증 코드·HTTP 헤더/본문·원본 오류 로그를 진단 기록으로 저장하거나 업로드하지 않습니다. 게시 성공은 갱신을 Android에 전달했다는 의미이며 실제 런처 화면이 바뀌었음을 확인한 것이 아닙니다.
+
+배터리 예외 안내는 일반 시스템 설정 화면을 엽니다. 사용자가 폰에서 직접 선택하며 앱이 설정을 바꾸거나 예외를 강제 요청하지 않습니다. 새 권한·알람·상주 서비스·추가 알림·추가 사용량 요청은 없습니다. 기존 로그인·수동 조회의 짧은 foreground service는 유지합니다. 상태 창과 앱 진입 자체는 네트워크 조회를 시작하지 않습니다.
+
+배터리 최적화 예외는 모든 전력·네트워크 제한의 해제를 뜻하지 않습니다. 자동 조회는 계속 JobScheduler를 사용하며 OS·제조사 정책에 따라 늦어지거나 실행되지 않을 수 있습니다. 설정 안내는 사용자 S25 Ultra의 원인 진단이나 실기기 해결 검증이 아닙니다. [Android Doze·예외 범위](https://developer.android.com/training/monitoring-device-state/doze-standby) · [Android 전력 제한](https://developer.android.com/topic/performance/power/power-details)
+
 ## 미검증
 
-실계정 브라우저 로그인/토큰 발급·회전, 실제 Android Keystore 저장, 실제 APK 설치·앱/설정 렌더링, Galaxy S25 Ultra/One UI 격자·재부팅·절전·장시간 동작은 미검증입니다. 로컬 합성 소켓 통신은 실제 폰 브라우저 콜백 시험이 아닙니다. Android 도구는 자체 설정 폴더 생성 오류로 실행하지 못했습니다. 해당 폴더의 한정된 권한을 요청한 뒤에도 같은 오류가 발생하여 실제 기기 테스트 결과로 보고하지 않습니다.
+실계정 브라우저 로그인/토큰 발급·회전, 실제 Android Keystore 저장, 실제 APK 설치·앱/설정 렌더링, Galaxy S25 Ultra/One UI 격자·재부팅·절전·장시간 동작은 미검증입니다. 로컬 합성 소켓 통신은 실제 폰 브라우저 콜백 시험이 아닙니다. 연결된 Android 기기가 없어 실제 기기 검증을 수행하지 못했습니다. 절전 설정 안내와 로컬 진단 검사는 사용자의 자동 조회 문제 원인이나 실기기 해결을 입증하지 않습니다.
 
 기본 설계 참고: [OpenAI 인증](https://learn.chatgpt.com/docs/auth), [Android foreground service](https://developer.android.com/develop/background-work/services/fgs/service-types), [Android 위젯 레이아웃](https://developer.android.com/develop/ui/views/appwidgets/layouts).
 

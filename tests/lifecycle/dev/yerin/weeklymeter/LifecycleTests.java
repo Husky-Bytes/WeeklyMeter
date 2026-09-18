@@ -20,11 +20,12 @@ public final class LifecycleTests {
         RefreshFeedback.clear(new Context());Context.STYLE.data.clear();Context.starts.clear();Context.stops.clear();Context.blockStart=false;
         SystemClock.now=10000;Handler.queue.clear();Handler.delayed.clear();Repo.outcome=Repo.SyncOutcome.UPDATED;Repo.action=()->{};
         Repo.vaultConnected=true;Repo.reconcileFailure=null;Repo.reconcileAction=()->{};Repo.reconcileCalls.set(0);Repo.syncCalls.set(0);
+        Context.DIAGNOSTICS.data.clear();Context.failDiagnostics=false;
     }
     private static void finishWorker()throws Exception{Repo.IO.submit(()->{}).get(5,TimeUnit.SECONDS);}
     private static void flush()throws Exception{Repo.IO.submit(()->{}).get(5,TimeUnit.SECONDS);Handler.drain();}
     public static void main(String[]args)throws Exception{
-        try{publicationBoundary();scheduler();lifecycle();automaticRecovery();automaticEligibility();feedback();System.out.println("PASS: "+checks+" independent scheduler/lifecycle checks (fake platform; no device/account/network)");}
+        try{publicationBoundary();scheduler();lifecycle();automaticRecovery();automaticEligibility();feedback();diagnosticStorage();diagnosticLifecycle();System.out.println("PASS: "+checks+" independent scheduler/lifecycle checks (fake platform; no device/account/network)");}
         finally{Repo.IO.shutdownNow();}
     }
     private static void scheduler(){
@@ -185,5 +186,101 @@ public final class LifecycleTests {
         Context.STYLE.data.put("feedback_duration_ms",Integer.MAX_VALUE);RefreshFeedback.error(c,next);check(RefreshFeedback.snapshot(c).expiresAt-SystemClock.now==10000,"oversized duration capped");
         SystemClock.now--;check(!RefreshFeedback.snapshot(c).visible,"clock rollback hides stale feedback");
         RefreshFeedback.clear(c);check(RefreshFeedback.currentRequestId(c)==0&&!RefreshFeedback.snapshot(c).visible,"clear removes generation and badge");
+    }
+    private static void diagnosticStorage(){
+        reset();Context c=new Context();AutoRefreshDiagnostics.Snapshot empty=AutoRefreshDiagnostics.read(c);
+        check(empty.outcome.equals("never_started")&&empty.startedAt==0&&empty.finishedAt==0&&empty.succeededAt==0&&empty.publishedAt==0,
+            "new installation has no invented automatic attempt or success");
+        check(empty.stopReason==-1&&!empty.publishAttempted&&!empty.publishSucceeded,"new diagnostic flags represent unknown and unattempted");
+        long first=AutoRefreshDiagnostics.begin(c);AutoRefreshDiagnostics.Snapshot started=AutoRefreshDiagnostics.read(c);
+        check(first>0&&started.startedAt>0&&started.finishedAt==0&&started.outcome.equals("running"),"automatic start records time but no completion");
+        check(!Store.values.data.containsKey("started_at")&&!Context.STYLE.data.containsKey("started_at"),"automatic diagnostics are isolated from account/display/style preferences");
+        AutoRefreshDiagnostics.complete(c,first,"updated");AutoRefreshDiagnostics.publication(c,first,false);
+        AutoRefreshDiagnostics.Snapshot fetched=AutoRefreshDiagnostics.read(c);
+        check(fetched.outcome.equals("updated")&&fetched.finishedAt>0&&fetched.succeededAt>0,"real updated outcome records query success independently of publication");
+        check(fetched.publishAttempted&&!fetched.publishSucceeded&&fetched.publishedAt==0,"publication failure never fabricates delivery time");
+        AutoRefreshDiagnostics.publication(c,first,true);long oldPublished=AutoRefreshDiagnostics.read(c).publishedAt;
+        check(oldPublished>0&&AutoRefreshDiagnostics.read(c).publishSucceeded,"successful cache-only retry records publication");
+        long second=AutoRefreshDiagnostics.begin(c);AutoRefreshDiagnostics.Snapshot newer=AutoRefreshDiagnostics.read(c);
+        check(second>first&&newer.finishedAt==0&&newer.stopReason==-1&&!newer.publishAttempted&&!newer.publishSucceeded,"next generation is monotonic and resets only current-attempt fields");
+        check(newer.succeededAt==fetched.succeededAt&&newer.publishedAt==oldPublished,"next attempt preserves last real query and publication success times");
+        AutoRefreshDiagnostics.complete(c,first,"error");AutoRefreshDiagnostics.stopped(c,first,7);
+        AutoRefreshDiagnostics.destroyed(c,first);AutoRefreshDiagnostics.publication(c,first,false);
+        check(AutoRefreshDiagnostics.read(c).outcome.equals("running")&&AutoRefreshDiagnostics.read(c).stopReason==-1&&!AutoRefreshDiagnostics.read(c).publishAttempted,
+            "all late diagnostic callbacks are rejected by newer generation");
+        AutoRefreshDiagnostics.stopped(c,second,7);long stopTime=AutoRefreshDiagnostics.read(c).finishedAt;
+        AutoRefreshDiagnostics.complete(c,second,"updated");AutoRefreshDiagnostics.publication(c,second,true);AutoRefreshDiagnostics.destroyed(c,second);
+        AutoRefreshDiagnostics.Snapshot stopped=AutoRefreshDiagnostics.read(c);
+        check(stopped.outcome.equals("stopped")&&stopped.stopReason==7&&stopped.finishedAt==stopTime,"late completion publication and destruction preserve OS stop reason and time");
+        check(stopped.succeededAt>0&&stopped.publishAttempted&&stopped.publishSucceeded,"known query/publication success can coexist with an OS stop record");
+        long third=AutoRefreshDiagnostics.begin(c);AutoRefreshDiagnostics.destroyed(c,third);AutoRefreshDiagnostics.complete(c,third,"cancelled");
+        check(AutoRefreshDiagnostics.read(c).outcome.equals("destroyed")&&AutoRefreshDiagnostics.read(c).finishedAt>0,"worker completion does not hide service destruction");
+        long invalid=AutoRefreshDiagnostics.begin(c);AutoRefreshDiagnostics.complete(c,invalid,"https://fixture.invalid/?token=do-not-store");
+        check(AutoRefreshDiagnostics.read(c).outcome.equals("error")&&!Context.DIAGNOSTICS.data.values().toString().contains("do-not-store"),"unknown outcome content is sanitized to a fixed label");
+        for(String result:new String[]{"updated","skipped","cancelled","error","signed_out","executor_rejected","disabled"}){
+            long id=AutoRefreshDiagnostics.begin(c);AutoRefreshDiagnostics.complete(c,id,result);
+            check(AutoRefreshDiagnostics.read(c).outcome.equals(result)&&AutoRefreshDiagnostics.read(c).finishedAt>0,"fixed terminal diagnostic label "+result);
+        }
+        long beforeReset=AutoRefreshDiagnostics.begin(c);Context.DIAGNOSTICS.data.clear();long afterReset=AutoRefreshDiagnostics.begin(c);
+        check(afterReset>beforeReset,"in-process preference reset does not reuse an active generation ID");
+        Context.failDiagnostics=true;
+        check(AutoRefreshDiagnostics.begin(c)==0&&AutoRefreshDiagnostics.read(c).outcome.equals("unavailable"),"unavailable diagnostic storage is not mistaken for no past attempts");
+        AutoRefreshDiagnostics.complete(c,afterReset,"error");AutoRefreshDiagnostics.stopped(c,afterReset,7);
+        AutoRefreshDiagnostics.destroyed(c,afterReset);AutoRefreshDiagnostics.publication(c,afterReset,false);Context.failDiagnostics=false;
+        check(AutoRefreshDiagnostics.read(c).outcome.equals("running"),"failed diagnostic writes cannot corrupt prior stored attempt");
+    }
+    private static void diagnosticLifecycle()throws Exception{
+        reset();UsageJob service=new UsageJob();JobParameters p=new JobParameters(Scheduler.PERIODIC,0);
+        service.onStartJob(p);flush();AutoRefreshDiagnostics.Snapshot successful=AutoRefreshDiagnostics.read(service);
+        check(successful.outcome.equals("updated")&&successful.succeededAt>0&&successful.finishedAt>0,"production job records actual updated result");
+        check(successful.publishAttempted&&successful.publishSucceeded&&successful.publishedAt>0,"production job records successful widget publication");service.onDestroy();
+        for(Repo.SyncOutcome result:new Repo.SyncOutcome[]{Repo.SyncOutcome.SKIPPED,Repo.SyncOutcome.CANCELLED}){
+            reset();Repo.outcome=result;service=new UsageJob();service.onStartJob(p);flush();AutoRefreshDiagnostics.Snapshot state=AutoRefreshDiagnostics.read(service);
+            check(state.outcome.equals(result==Repo.SyncOutcome.SKIPPED?"skipped":"cancelled")&&state.succeededAt==0,"production non-updated result never reports automatic query success");service.onDestroy();
+        }
+        reset();Repo.vaultConnected=false;service=new UsageJob();service.onStartJob(p);flush();
+        check(AutoRefreshDiagnostics.read(service).outcome.equals("signed_out")&&Repo.syncCalls.get()==0,"production signed-out result is diagnostic without any query");service.onDestroy();
+        reset();Repo.action=()->{throw new IllegalStateException("Synthetic secret-shaped error");};service=new UsageJob();service.onStartJob(p);flush();
+        check(AutoRefreshDiagnostics.read(service).outcome.equals("error")&&!Context.DIAGNOSTICS.data.values().toString().contains("secret-shaped"),"production failure records only fixed diagnostic label");service.onDestroy();
+        reset();Store.values.data.put("auto",false);service=new UsageJob();service.onStartJob(p);
+        check(AutoRefreshDiagnostics.read(service).outcome.equals("disabled")&&Repo.syncCalls.get()==0,"ineligible callback records disabled without usage query");service.onDestroy();
+        reset();WeeklyWidget.failures.set(1);service=new UsageJob();service.onStartJob(p);finishWorker();
+        check(AutoRefreshDiagnostics.read(service).publishAttempted&&!AutoRefreshDiagnostics.read(service).publishSucceeded,"first publication failure is visible before retry");Handler.drain();
+        check(AutoRefreshDiagnostics.read(service).publishSucceeded&&AutoRefreshDiagnostics.read(service).outcome.equals("updated"),"cache-only retry updates publication status without altering query outcome");service.onDestroy();
+        reset();WeeklyWidget.failures.set(10);service=new UsageJob();service.onStartJob(p);flush();
+        check(AutoRefreshDiagnostics.read(service).succeededAt>0&&!AutoRefreshDiagnostics.read(service).publishSucceeded&&AutoRefreshDiagnostics.read(service).publishedAt==0,
+            "successful query and persistent publication failure remain distinguishable");WeeklyWidget.failures.set(0);service.onDestroy();
+        for(int sdk:new int[]{26,35}){
+            reset();Build.VERSION.SDK_INT=sdk;CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+            Repo.action=()->{entered.countDown();release.await(5,TimeUnit.SECONDS);Store.saveFixture(19,11000);};service=new UsageJob();service.onStartJob(p);
+            check(entered.await(5,TimeUnit.SECONDS),"diagnostic cancellation holds query before cache completion");
+            service.onStopJob(new JobParameters(Scheduler.PERIODIC,JobParameters.STOP_REASON_CONSTRAINT_CONNECTIVITY));release.countDown();flush();
+            AutoRefreshDiagnostics.Snapshot state=AutoRefreshDiagnostics.read(service);
+            check(state.outcome.equals("stopped")&&state.stopReason==(sdk>=31?JobParameters.STOP_REASON_CONSTRAINT_CONNECTIVITY:-1),"production stop reason is retained with API-safe fallback");
+            check(state.publishSucceeded&&WeeklyWidget.percent==19&&service.finished.isEmpty(),"late stopped-worker publication updates cache but not completion ownership");service.onDestroy();
+        }
+        for(final boolean linkage:new boolean[]{false,true}){
+            reset();CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+            Repo.action=()->{entered.countDown();release.await(5,TimeUnit.SECONDS);};service=new UsageJob();service.onStartJob(p);
+            check(entered.await(5,TimeUnit.SECONDS),"stop-reason failure test holds active work");
+            JobParameters broken=new JobParameters(Scheduler.PERIODIC,0){
+                @Override public int getStopReason(){if(linkage)throw new NoSuchMethodError("Synthetic unavailable method");throw new IllegalStateException("Synthetic platform failure");}
+            };
+            boolean retry=service.onStopJob(broken);release.countDown();flush();AutoRefreshDiagnostics.Snapshot state=AutoRefreshDiagnostics.read(service);
+            check(!retry&&state.outcome.equals("stopped")&&state.stopReason==-1,"unavailable platform stop reason preserves safe cancellation and unknown reason");
+            check(service.finished.isEmpty()&&state.publishAttempted,"stop-reason read failure cannot let a stopped worker finish the job");service.onDestroy();
+        }
+        reset();service=new UsageJob();Repo.action=()->Store.saveFixture(18,12000);JobParameters first=new JobParameters(Scheduler.PERIODIC,0),second=new JobParameters(Scheduler.PERIODIC,0);
+        WeeklyWidget.failures.set(1);service.onStartJob(first);finishWorker();Repo.outcome=Repo.SyncOutcome.SKIPPED;service.onStartJob(second);finishWorker();
+        AutoRefreshDiagnostics.Snapshot beforeOldCallback=AutoRefreshDiagnostics.read(service);Handler.drain();AutoRefreshDiagnostics.Snapshot afterOldCallback=AutoRefreshDiagnostics.read(service);
+        check(afterOldCallback.outcome.equals("skipped")&&afterOldCallback.startedAt==beforeOldCallback.startedAt&&afterOldCallback.finishedAt==beforeOldCallback.finishedAt,
+            "late old publication retry cannot overwrite newer job diagnostics");service.onDestroy();
+        reset();service=new UsageJob();service.onStartJob(p);finishWorker();service.onDestroy();Handler.drain();
+        check(AutoRefreshDiagnostics.read(service).outcome.equals("destroyed")&&service.finished.isEmpty(),"production destruction before completion callback remains recorded");
+        reset();Context.failDiagnostics=true;service=new UsageJob();service.onStartJob(p);flush();
+        check(Repo.syncCalls.get()==1&&service.finished.size()==1&&WeeklyWidget.renders>0,"diagnostic storage failure never prevents successful account work or publication");Context.failDiagnostics=false;service.onDestroy();
+        reset();Repo.IO.shutdown();check(Repo.IO.awaitTermination(5,TimeUnit.SECONDS),"diagnostic rejection test stops executor");service=new UsageJob();
+        try{check(!service.onStartJob(p)&&AutoRefreshDiagnostics.read(service).outcome.equals("executor_rejected"),"production executor rejection records distinct outcome");}
+        finally{Repo.IO=Executors.newSingleThreadExecutor();}service.onDestroy();
     }
 }

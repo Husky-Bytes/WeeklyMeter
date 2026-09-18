@@ -37,6 +37,13 @@ resume_start=main_source.index('void onResume()')
 resume_end=main_source.index('@Override protected void onPause()',resume_start)
 resume=main_source[resume_start:resume_end]
 assert 'reconcileConnection()' in resume and '.sync(' not in resume, 'app resume must not fetch usage'
+status_start=main_source.index('void automaticStatus()')
+status_end=main_source.index('void languageHeader()',status_start)
+status_ui=main_source[status_start:status_end]
+assert 'new Repo(' not in status_ui and '.sync(' not in status_ui and 'Scheduler.ensure(' not in status_ui, 'status/settings must not fetch or reset jobs'
+assert 'BackgroundAccess.read(this)' in status_ui and 'AutoRefreshDiagnostics.read(this)' in status_ui
+assert 'BackgroundAccess.batterySettings(this)' in status_ui and 'Settings.ACTION_APPLICATION_DETAILS_SETTINGS' in status_ui
+assert 'ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' not in main_source, 'battery exceptions require user-controlled system settings'
 widget=ET.parse(res/'xml/weekly_widget_info.xml').getroot()
 assert widget.attrib[a+'targetCellWidth']=='1' and widget.attrib[a+'targetCellHeight']=='1'
 assert widget.attrib[a+'resizeMode']=='horizontal|vertical'
