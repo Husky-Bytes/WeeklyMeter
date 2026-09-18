@@ -1,0 +1,2 @@
+package android.util;
+public final class SizeF {private final float width,height;public SizeF(float w,float h){width=w;height=h;}public float getWidth(){return width;}public float getHeight(){return height;}public boolean equals(Object value){return value instanceof SizeF&&Float.compare(width,((SizeF)value).width)==0&&Float.compare(height,((SizeF)value).height)==0;}public int hashCode(){return Float.hashCode(width)*31+Float.hashCode(height);}}

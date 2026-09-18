@@ -81,7 +81,7 @@ public final class MainActivity extends Activity {
             button(t("ChatGPT로 로그인","Sign in with ChatGPT"),true,this::consent);button(t("저장된 연결 정보 초기화","Clear saved connection"),false,this::disconnect);
         }
         gap(content,20);button(t("공식 사용량 화면","Official usage page"),false,()->browser("https://chatgpt.com/codex/settings/usage"));
-        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" 0.5.0")
+        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" 0.5.1")
             .setMessage(t("Codex의 주간 잔여량을 표시하는 비공식 위젯입니다. 일반 ChatGPT 모델의 통합 한도는 아닙니다.","An unofficial widget for the Codex weekly quota, not a combined limit for ChatGPT models."))
             .setPositiveButton("GitHub",(d,w)->browser("https://github.com/Husky-Bytes/WeeklyMeter")).setNegativeButton(t("닫기","Close"),null).show());
         button(t("글꼴 라이선스 · 상표 안내","Font licenses · Trademarks"),false,this::notices);

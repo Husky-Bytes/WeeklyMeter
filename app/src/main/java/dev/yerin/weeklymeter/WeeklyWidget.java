@@ -12,6 +12,7 @@ import java.util.*;
 
 public final class WeeklyWidget extends AppWidgetProvider {
     static final String REFRESH="dev.yerin.weeklymeter.REFRESH";
+    private static final Object RENDER_LOCK=new Object();
     @Override public void onUpdate(Context c,AppWidgetManager manager,int[] ids){renderAll(c);Scheduler.ensure(c);}
     @Override public void onAppWidgetOptionsChanged(Context c,AppWidgetManager manager,int id,Bundle options){render(c,manager,id);}
     @Override public void onDisabled(Context c){Scheduler.cancel(c);}
@@ -73,10 +74,32 @@ public final class WeeklyWidget extends AppWidgetProvider {
     private static int integer(Map<String,Object> m,String key,int fallback){long n=Json.integer(m.get(key),fallback);return n<Integer.MIN_VALUE||n>Integer.MAX_VALUE?fallback:(int)n;}
     private static float decimal(Map<String,Object> m,String key,float fallback){return (float)Json.number(m.get(key),fallback);}
     static void renderAll(Context c){
-        AppWidgetManager manager=AppWidgetManager.getInstance(c);
-        for(int id:manager.getAppWidgetIds(new ComponentName(c,WeeklyWidget.class)))render(c,manager,id);
+        // Initialize locale before taking the render lock. Language selection can
+        // repaint while holding AppLanguage's monitor; its cached locale is then
+        // lock-free, avoiding the reverse lock order during a cold service start.
+        Texts.locale(c);
+        synchronized(RENDER_LOCK){
+            AppWidgetManager manager=AppWidgetManager.getInstance(c);
+            RuntimeException failure=null;
+            for(int id:manager.getAppWidgetIds(new ComponentName(c,WeeklyWidget.class))){
+                try{renderLocked(c,manager,id);}
+                catch(RuntimeException error){
+                    // A stale or broken host instance must not prevent the others
+                    // from receiving fresh data. Still report failure for retry.
+                    if(failure==null)failure=error;
+                    else if(failure!=error)failure.addSuppressed(error);
+                }
+            }
+            if(failure!=null)throw failure;
+        }
     }
     static void render(Context c,AppWidgetManager manager,int id){
+        Texts.locale(c);
+        synchronized(RENDER_LOCK){renderLocked(c,manager,id);}
+    }
+    private static void renderLocked(Context c,AppWidgetManager manager,int id){
+        // Read the cache only after earlier publications finish, so an older
+        // resize/feedback render cannot overwrite a completed automatic refresh.
         Usage u=Store.selected(c);WidgetStyle s=style(c);Bundle options=manager.getAppWidgetOptions(id);
         // Phones normally supply two sizes; up to four handles orientation/foldable
         // variants while keeping the aggregate bitmap allocation below ~3.6 MB.

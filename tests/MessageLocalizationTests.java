@@ -21,7 +21,7 @@ public final class MessageLocalizationTests {
         "//[^\\r\\n]*|/\\*[\\s\\S]*?\\*/|'(?:\\\\.|[^'\\\\])*'|\"((?:\\\\.|[^\"\\\\])*)\"");
     private static final String[] RUNTIME_FILES = {
         "Api", "Repo", "Usage", "Json", "NetworkPolicy", "Scheduler",
-        "WidgetRefreshService", "BrowserLoginService", "Vault"
+        "WidgetRefreshService", "BrowserLoginService", "Vault", "UsageJob"
     };
 
     private static void check(boolean condition, String name) {

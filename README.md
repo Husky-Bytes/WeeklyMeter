@@ -6,7 +6,7 @@ PC나 외부 중계 서버 없이 폰에서 동작하는 Android 위젯입니다
 
 [한국어](README.md) · [English](README.en.md)
 
-**[Android APK 다운로드 · 0.5.0](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.5.0/WeeklyMeter-0.5.0.apk)** · [변경 내용 / 릴리스](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.5.0) · [문제 제보 / 제안](https://github.com/Husky-Bytes/WeeklyMeter/issues)
+**[Android APK 다운로드 · 0.5.1](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.5.1/WeeklyMeter-0.5.1.apk)** · [변경 내용 / 릴리스](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.5.1) · [문제 제보 / 제안](https://github.com/Husky-Bytes/WeeklyMeter/issues)
 
 ![WeeklyMeter의 작은 위젯과 꾸미기 방향을 보여주는 예시 이미지](docs/images/weeklymeter-overview.png)
 
@@ -39,7 +39,7 @@ Android 8.0 이상을 대상으로 합니다. Galaxy S25 Ultra를 염두에 두�
 4. 홈 화면에 **주간 잔여량(WeeklyMeter)** 위젯을 추가합니다. 앱의 **위젯 꾸미기**에서 원하는 표시를 고르면 자동 저장됩니다.
 5. 위젯을 눌러 새로 조회합니다. **마지막 성공 조회 시각**을 켜 두면 퍼센트가 그대로여도 갱신 여부를 알 수 있습니다.
 
-자동 조회는 15 / 30 / 60분 중 선택하며 위젯이 있을 때만 예약합니다. 성공한 자동 조회도 사용량과 조회 시각에 반영됩니다. **앱을 열거나 언어·꾸미기 설정만 바꿔서는 네트워크 조회를 시작하지 않습니다.** Android 절전·네트워크 제한 때문에 자동 조회가 늦어질 수 있으며 실시간 표시를 보장하지 않습니다.
+자동 조회는 15 / 30 / 60분 중 선택하며 위젯이 있을 때만 예약합니다. 성공한 자동 조회는 위젯에 사용량과 마지막 성공 조회 시각을 함께 게시합니다. 0.5.1에서는 백그라운드 연결 복원과 저장 후 위젯 갱신이 빠질 수 있는 경로를 수정했습니다. **앱을 열거나 언어·꾸미기 설정만 바꿔서는 네트워크 조회를 시작하지 않습니다.** Android 절전·네트워크 제한 때문에 자동 조회가 늦어질 수 있으며 실시간 표시를 보장하지 않습니다.
 
 ## 계정을 연결하기 전에
 
@@ -77,6 +77,8 @@ Android 8.0 이상을 대상으로 합니다. Galaxy S25 Ultra를 염두에 두�
 
 수동 탭은 작업 대기열을 거치지 않고 위젯의 명시적 `PendingIntent`로 짧은 foreground service를 시작합니다. 앱 화면을 열 필요가 없는 경로이며 저장된 연결 정보도 자체 복구합니다. 조회 중 시스템 알림 또는 실행 중 앱 표시가 잠시 나타날 수 있습니다. 자동 주기는 `JobScheduler`를 사용합니다. 실제 S25 Ultra / One UI 백그라운드 동작은 미검증입니다.
 
+0.5.1의 자동 작업은 저장된 연결 정보를 작업 스레드에서 먼저 복원하고, 저장한 조회값을 전체 위젯에 게시한 뒤 작업 완료를 처리합니다. 한 위젯의 갱신 실패는 다른 위젯과 분리하며, 겹친 렌더가 새 표시를 오래된 내용으로 덮지 않도록 순서를 보호합니다. 추가 HTTP 조회나 정확한 알람을 도입한 것은 아닙니다. Android 대체 테스트로 누락 경로를 확인했지만 실제 S25 Ultra에서 원인·수정 효과를 재현한 것은 아닙니다.
+
 조회는 위젯 탭, 앱의 지금 새로고침 버튼, 자동 주기, 최초 로그인 완료 때만 요청합니다. 앱 진입·복귀·설정 변경은 조회하지 않습니다. 실패나 탭 자체가 마지막 성공 조회 시각을 현재 시각으로 바꾸지 않습니다. 연속 탭은 합치고 10초 제한 및 서버 재시도 대기를 존중합니다.
 
 Codex 응답의 정확히 7일(604800초 / 10080분) 한도에서 `100 - 사용률`을 계산합니다. 선택한 한도가 누락되면 다른 한도로 조용히 바꾸지 않습니다. 표시값은 마지막 성공한 조회값입니다. 알려진 초기화 시각, 최대 7일 캐시, 시계 역행 검사에서 만료되면 다음 렌더 때 `—%`로 표시합니다. 즉시성은 보장하지 않습니다.
@@ -111,14 +113,14 @@ Android 13 이상은 앱별 언어 기능과 연동합니다. 시스템 설정 �
 
 ## 이번 버전과 검사 결과
 
-0.5.0은 한국어·영어 자동 선택과 지구본 언어 설정, 언어별 앱 이름, 적응형 아이콘을 추가했습니다. 꾸미기는 설명이 보이는 4개 카드로 정리하고 앱 문구를 간결하게 다듬었습니다. 기존 탭 새로고침·로그인·사용량·꾸미기 설정은 유지합니다. [전체 변경 안내 · 한국어 / English](CHANGELOG-0.5.0.md)
+0.5.1은 자동 조회에서 저장된 연결을 복원하지 못해 조회가 건너뛰어지거나, 조회값 저장 후 위젯 갱신이 빠질 수 있는 경로를 수정합니다. 여러 위젯·동시 갱신도 보호합니다. 기존 언어·아이콘·꾸미기·로그인과 탭 새로고침은 유지합니다. [전체 변경 안내 · 한국어 / English](CHANGELOG-0.5.1.md)
 
-Windows 전체 Android 빌드, APK 생성·정렬·서명 확인, **4,136개 실행 검사**, 적응형 아이콘 구조·도형 검사 49개와 XML 18개·리소스 일관성 검사를 통과했습니다. 이 수치는 로컬 로직·파일 검사와 대체 Android 환경 테스트이며, 실기기·실계정 성공을 뜻하지 않습니다. [검사 항목과 미검증 범위](TEST-RESULTS.txt)
+Windows 전체 Android 빌드, APK 생성·정렬·서명 확인, **4,499개 실행 검사**, 적응형 아이콘과 XML·리소스 일관성 검사를 통과했습니다. 이 수치는 로컬 로직·파일 검사와 대체 Android 환경 테스트이며, 실기기·실계정 성공을 뜻하지 않습니다. [검사 항목과 미검증 범위](TEST-RESULTS.txt)
 
 <details>
 <summary>직접 빌드 / APK 무결성 확인</summary>
 
-Windows 검증 환경: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. 앱은 minSdk 26 / targetSdk 35, 패키지 `dev.yerin.weeklymeter`, versionCode 7입니다.
+Windows 검증 환경: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. 앱은 minSdk 26 / targetSdk 35, 패키지 `dev.yerin.weeklymeter`, versionCode 8입니다.
 
 ```powershell
 .\build-apk.ps1 -Project . -BuildDirectory ..\build-current -SigningDirectory ..\private-signing -Sdk D:\Android\Sdk -Jdk 'C:\Program Files\Android\Android Studio\jbr'
@@ -128,10 +130,10 @@ Windows 검증 환경: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Pyth
 
 Linux에서는 `ANDROID_HOME`을 지정한 뒤 `bash build-apk.sh`를 실행합니다. Linux 전체 빌드와 바이트 단위 재현 가능성은 별도 미검증입니다. 개인 로컬 경로가 포함된 원본 빌드 로그는 공개 배포에서 제외했습니다.
 
-배포 APK `WeeklyMeter-0.5.0.apk`의 SHA-256:
+배포 APK `WeeklyMeter-0.5.1.apk`의 SHA-256:
 
 ```text
-4c5bf928989dfbc38ab45e7faddec7ba208a420fdc12086e35f93ace385ee193
+f4b22b9caa3f1b0d31b1a8a778f32ede1073e0ed321503bbc34d8f45a9699f1c
 ```
 
 해시 일치는 다운로드 파일의 동일성을 확인하는 수단이지 앱의 안전 보증이 아닙니다.

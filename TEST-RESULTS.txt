@@ -1,4 +1,4 @@
-WeeklyMeter 0.5.0 — Korean/English, adaptive icon, clearer settings, 2026-09-15
+WeeklyMeter 0.5.1 — automatic widget publication and background recovery, 2026-09-18
 
 PASS: 49 core parsing/network-boundary checks.
 PASS: 71 usage/JSON/bucket scenarios, including 1001 percentage samples.
@@ -6,32 +6,68 @@ PASS: 1096 widget-style/date/layout/bitmap-budget/internal-spacing checks, pure 
 PASS: 40 manual-refresh feedback/expiry checks, pure Java.
 PASS: 12 actual bundled font parsing/Korean-numeric glyph/license checks, JDK AWT.
 PASS: 91 authentication/refresh checks, real Api/Repo with fake HTTPS and storage.
-PASS: 40 periodic scheduler/job/feedback lifecycle checks with Android/Repo doubles.
+PASS: 91 periodic scheduler/job/feedback lifecycle checks with Android/Repo doubles.
 PASS: 287 browser PKCE/callback checks, including synthetic real loopback sockets.
 PASS: 28 browser login service lifecycle checks with fake Android/browser/Repo.
 PASS: 64 manual foreground service checks with real service/Scheduler/UsageJob/Feedback
 and fake Android/Repo. No Activity class, real account or network exists in that harness.
-PASS: 2224 message-localization checks; 75 runtime message occurrences audited against
+PASS: 2227 message-localization checks; 76 runtime message occurrences audited against
 the bilingual display catalog, plus strict structured HTTP errors. Cached legacy
 messages use concise/formal Korean or English at display time. Unknown labels remain
 unchanged. No translation network is used.
 PASS: 39 primary-system-language/manual-choice policy checks, pure Java.
 PASS: 59 Android language API/context/preference/receiver checks with platform doubles.
+PASS: 309 widget-publication checks using production WeeklyWidget/Store/Usage/style
+code with fake Android, host, Bitmap and renderer. These inspect publication payloads,
+not real Canvas pixels or launcher behavior.
 PASS: 36 APK asset checks: raw ZIP paths, duplicates, exact ten names, bytes/lengths.
 The 36 checks run before signing AND on the signed final APK; counted only once.
-TOTAL: 4136 executable Java logic/lifecycle/font/APK checks.
+TOTAL: 4499 executable Java logic/lifecycle/font/APK checks.
+Increase over 0.5.0: 51 lifecycle + 3 localization + 309 widget publication checks.
 No real account or Android device is represented by these tests.
 PASS: 49 additional static adaptive-icon resource and safe-zone geometry checks.
 PASS: 18 XML files, resource references, manifest components and restricted permissions.
 PASS: Full Windows Android compilation, DEX, alignment, signing and APK verification.
 
 Build: JDK 21.0.8; Android platform 36; build-tools 35.0.0; minSdk26/targetSdk35.
-Package dev.yerin.weeklymeter; versionCode7/versionName0.5.0.
+Package dev.yerin.weeklymeter; versionCode8/versionName0.5.1.
 Compiled locales: default English, explicit English, Korean.
 Compiled application labels: WeeklyMeter / 주간 잔여량.
 APK signature v2/v3 verified; preserved personal update signing certificate.
-APK SHA256: 4c5bf928989dfbc38ab45e7faddec7ba208a420fdc12086e35f93ace385ee193
+APK SHA256: f4b22b9caa3f1b0d31b1a8a778f32ede1073e0ed321503bbc34d8f45a9699f1c
 Certificate SHA256: abfc4290289a8df7abffe951cf096fcd1fbe3972f0887d95390bab5a4d5816ab
+
+Automatic-refresh regressions reproduced with deterministic Android/Repo doubles:
+1. A false cached connection flag rejected a periodic job before a valid saved
+   credential session could be reconciled after a cold background start.
+2. A job stop after saving fresh usage but before its main-thread completion
+   callback could suppress widget publication until another repaint occurred.
+These reproduce source-level failure paths; they do not establish which condition
+caused the user's actual Galaxy S25 Ultra symptom.
+
+The periodic worker now reconciles credentials on Repo.IO, rechecks automatic-refresh
+and installed-widget eligibility, and publishes committed cache before jobFinished.
+Tests hold the queue, reconciliation and save/completion boundaries to verify
+stop/destroy/replacement behavior, cancelled queued work, signed-out or unreadable
+sessions, auto-off/widgets-removed races, completion ownership and executor rejection.
+No Activity, real account or real usage HTTP request exists in the lifecycle harness.
+A publication failure permits one cache-only retry; late retries read current data
+and cannot finish a newer job. No extra usage fetch is introduced for repaint retry.
+
+Production widget publication is tested for current percentage/receipt timestamp
+across all fake host size variants, full RemoteViews data, accessible descriptions,
+hidden preview placeholders, immutable direct foreground-service tap actions, resize
+and legacy size handling, and the four-variant memory bound. Failure injection checks
+that one widget/host failure does not block later IDs, including repeated exception
+instances. Coordinated overlapping renders cannot restore an older published reading.
+A cold language/widget lock-order scenario completes without deadlock.
+These 309 checks use captured fake payloads, not real Android RemoteViews/Canvas.
+
+Automatic refresh remains JobScheduler-based at 15/30/60-minute settings with the
+same five permissions. There is no exact alarm, persistent service or added HTTP
+request solely to repaint. OS constraints can delay jobs; force-stop, process death
+or launcher rejection can still prevent immediate publication. The app cannot
+guarantee an exact interval or immediate home-screen repaint on Samsung One UI.
 
 Language tests cover API26/API33, primary Korean vs every other language, secondary
 Korean on a non-Korean phone, manual override, cold process recreation, configuration
@@ -72,6 +108,9 @@ NOT TESTED: APK installation/launch; actual Chrome/Samsung Internet authorizatio
 real OpenAI tokens/refresh/revocation; Android Keystore/AtomicFile runtime;
 real Canvas/widget/settings/keyboard rendering; Galaxy S25 Ultra/One UI 1x1 allocation,
 launcher icon masks/label caching/language changes, reboot/Doze/long-term login retention;
+the user's actual automatic-update failure and corrected long-running automatic
+publication on S25 Ultra/One UI, real host update failures or device process races;
 live usage vs official screen; Linux full build or byte-for-byte reproducibility.
-Android device tooling failed while creating its own settings directory. No device
-result is claimed. Automatic refresh cannot prevent revocation or ensure permanent login.
+No device result is claimed. Automatic refresh cannot prevent revocation or ensure
+permanent login. Test/build success is not a guarantee that account connection is safe;
+the unofficial authentication tokens are not restricted to read-only usage access.

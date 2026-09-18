@@ -1,4 +1,4 @@
-# Weekly Meter 0.4.0 보안 범위
+# WeeklyMeter 0.5.1 보안 범위
 
 ## 인증
 

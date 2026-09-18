@@ -6,7 +6,7 @@ A small Android widget that runs on your phone—no PC or external relay server 
 
 [한국어](README.md) · [English](README.en.md)
 
-**[Download Android APK · 0.5.0](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.5.0/WeeklyMeter-0.5.0.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.5.0) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
+**[Download Android APK · 0.5.1](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.5.1/WeeklyMeter-0.5.1.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.5.1) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
 
 ![Illustrative concept showing compact WeeklyMeter widgets and customization possibilities](docs/images/weeklymeter-overview.png)
 
@@ -39,7 +39,7 @@ On first launch, the app uses **Korean when your primary system language is Kore
 4. Add a WeeklyMeter widget to your home screen. Open **Customize widget** in the app; changes are saved automatically.
 5. Tap the widget to refresh. Enable **last successful update** to tell when new data was received even if the percentage stays the same.
 
-Automatic refresh can be scheduled every 15 / 30 / 60 minutes while a widget is installed. Successful automatic updates also change the displayed usage and update time. **Opening the app or changing language/style does not trigger a network refresh.** Android battery and network restrictions may delay scheduled work; this is not a real-time display.
+Automatic refresh can be scheduled every 15 / 30 / 60 minutes while a widget is installed. Successful automatic refreshes publish both usage and the last successful refresh time to the widget. Version 0.5.1 fixes skipped background connection restoration and dropped widget publication after saving. **Opening the app or changing language/style does not trigger a network refresh.** Android battery and network restrictions may delay scheduled work; this is not a real-time display.
 
 ## Before connecting your account
 
@@ -77,6 +77,8 @@ Completion feedback defaults to **1.0 second**. Set 0.1–10.0 seconds in 0.1-se
 
 Manual taps use an explicit widget `PendingIntent` to start a short foreground service directly, without the job queue or opening an app Activity. Stored connection information is restored independently. A temporary system notification or running-app indicator may appear. Automatic scheduling uses `JobScheduler`. This background path has not been tested on a real S25 Ultra / One UI device.
 
+In 0.5.1, the scheduled worker first reconciles saved credentials, then publishes saved usage to all widgets before job completion. One widget's failure is isolated from others, and rendering is ordered so an older overlapping render cannot replace newer content. This does not add HTTP usage requests or exact alarms. The missed-update paths were reproduced using Android test doubles, not on the user's S25 Ultra.
+
 Usage requests occur only after a widget tap, the app's explicit refresh button, an automatic job, or initial login completion. Opening/returning to the app and changing settings do not request usage. Failed requests and taps do not replace the last successful update time with the current time. Repeated taps are coalesced; a 10-second limit and server retry delays are respected.
 
 The app calculates `100 - used percent` from a Codex limit of exactly seven days (604800 seconds / 10080 minutes). A missing selected limit is not silently replaced with another. Values are the last successful result. Known reset time, maximum seven-day cache age, and clock-backwards checks can expire the value; the next render then shows `—%`. Immediate expiry rendering is not guaranteed.
@@ -111,14 +113,14 @@ The launcher masks the adaptive foreground/background into the phone's circle, r
 
 ## Version and verification
 
-0.5.0 adds Korean/English automatic selection, a globe language selector, localized app names, and an adaptive icon. Four descriptive settings cards and shorter wording simplify customization. Existing tap-to-refresh, login, usage, and style settings are retained. [Full changelog · Korean / English](CHANGELOG-0.5.0.md)
+0.5.1 fixes paths where automatic usage could be skipped before saved credentials were restored, or a widget update could be dropped after usage was saved. Multiple widgets and overlapping renders are also protected. Existing language, icon, customization, login, and tap-to-refresh behavior remain. [Full changelog · Korean / English](CHANGELOG-0.5.1.md)
 
-The full Windows Android build, APK generation/alignment/signature verification, **4,136 executable checks**, 49 static adaptive-icon structure/geometry checks, and consistency checks across 18 XML files/resources passed. These include local logic/file checks and Android test doubles—not successful real-device or live-account tests. [Detailed results and unverified areas](TEST-RESULTS.txt)
+The full Windows Android build, APK generation/alignment/signature verification, **4,499 executable checks**, adaptive-icon checks, and XML/resource consistency checks passed. These include local logic/file checks and Android test doubles—not successful real-device or live-account tests. [Detailed results and unverified areas](TEST-RESULTS.txt)
 
 <details>
 <summary>Build from source / verify the download</summary>
 
-Verified Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 7.
+Verified Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 8.
 
 ```powershell
 .\build-apk.ps1 -Project . -BuildDirectory ..\build-current -SigningDirectory ..\private-signing -Sdk D:\Android\Sdk -Jdk 'C:\Program Files\Android\Android Studio\jbr'
@@ -128,10 +130,10 @@ Replace SDK/JDK paths with your local installation paths and use a fresh `BuildD
 
 On Linux, set `ANDROID_HOME` and run `bash build-apk.sh`. A full Linux build and byte-for-byte reproducibility have not been verified. Raw build logs containing personal local paths are excluded from the public distribution.
 
-SHA-256 of the published `WeeklyMeter-0.5.0.apk`:
+SHA-256 of the published `WeeklyMeter-0.5.1.apk`:
 
 ```text
-4c5bf928989dfbc38ab45e7faddec7ba208a420fdc12086e35f93ace385ee193
+f4b22b9caa3f1b0d31b1a8a778f32ede1073e0ed321503bbc34d8f45a9699f1c
 ```
 
 A matching hash verifies file identity, not the safety of the app.

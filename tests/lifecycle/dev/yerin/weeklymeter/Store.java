@@ -3,6 +3,9 @@ import android.content.Context;
 import java.util.*;
 final class Store {
     static final Prefs values=new Prefs();
+    static volatile int percent;
+    static volatile long fetchedAt;
+    static void saveFixture(int value,long receivedAt){percent=value;fetchedAt=receivedAt;}
     static boolean connected(Context c){return values.getBoolean("connected",false);}
     static Prefs prefs(Context c){return values;}
     static void error(Context c,String text){values.data.put("error",text);}
