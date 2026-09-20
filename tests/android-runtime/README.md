@@ -8,7 +8,7 @@ Run only on the task's isolated Android emulator, `emulator-5580`, with AVD name
 
 Prerequisites:
 
-- Build and install WeeklyMeter 0.6.1 on that fresh Android 15 / API 35 emulator. The isolated AVD keeps its existing `WeeklyMeter060` name.
+- Build and install WeeklyMeter 0.6.2 on that fresh Android 15 / API 35 emulator. The isolated AVD keeps its existing `WeeklyMeter060` name.
 - Turn off emulator Wi-Fi/mobile data and unlock/wake its screen.
 - Grant its overlay app-op in this emulator only. This simulates the user's special-access grant; it does not test the permission prompt.
 - Use the same existing signing directory as the app build. The script passes the password file to Android's signer without reading or printing it.
@@ -17,13 +17,19 @@ Example from the task workspace:
 
 ```powershell
 .\work\github-publish\WeeklyMeter\test-android-runtime.ps1 `
-  -AppBuildDirectory .\work\build-v061 `
+  -AppBuildDirectory .\work\build-v062 `
   -SigningDirectory .\work\signing `
-  -OutputDirectory .\work\runtime-v061-new `
+  -OutputDirectory .\work\runtime-v062-new `
   -Run
 ```
 
 The test checks actual Android activity creation, settings preview rendering, window attachment, independent preferences, cache-to-bitmap updates, resizing, drag persistence, long-press dismissal, reopening and the signed-out manual-refresh path.
+
+For the editor entry points, it checks that the home and floating customization buttons are adjacent peers with the same primary styling, clicks each actual button, and verifies which editor Activity opens without an intermediate menu. When this isolated emulator has no installed home widget, its home preview must explicitly label its dimensions as estimated.
+
+For preview size, it verifies the floating ImageView measures 160 × 120 dp in display pixels, changes the actual width/height inputs to 300 × 240 and 360 × 300 dp, and checks the image is never fit down. It checks fixed screen coordinates while the settings ScrollView scrolls. It then resizes only the test Activity's window to create a small viewport, dispatches a real drag gesture, checks both-axis panning and programmatic edge constraints, and restores the original window and dimensions. This is an actual Android layout test, not a Samsung launcher pixel comparison or a physical keyboard/IME test.
+
+The instrumentation also draws only its own synthetic-fixture Activity views into three PNGs for local visual review (main customization entries, 160 × 120 preview, and 360 × 300 preview). It does not capture other apps or the system screen. Files go to the target app's scoped external-files `runtime-v062` directory, whose paths are printed as `VISUAL_CAPTURE`; pull them only into the private runtime-test output directory. They are not app assets and must not be added to the public APK or repository.
 
 For overall opacity, it renders the actual Android `WidgetRenderer` at 100%, 50% and 0%, identifies background, text and success-feedback pixels, and compares their alpha. RGB comparison allows a small premultiplication-rounding tolerance. It also verifies independent home/floating values and live floating-window repainting at 100 → 50 → 0 → 100 without another usage query. A fully transparent overlay remains an active, closable session; this test does not claim its touch area is disabled.
 

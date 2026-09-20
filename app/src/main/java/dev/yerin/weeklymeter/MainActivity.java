@@ -60,8 +60,9 @@ public final class MainActivity extends Activity {
         if(content==null)return;content.removeAllViews();languageHeader();gap(content,20);
         Usage u=Store.selected(this);boolean valid=u!=null&&!u.expired(System.currentTimeMillis());
         LinearLayout hero=card();text(hero,valid?u.percent():"—%",56,TEXT,true);text(hero,Display.reset(this,u),14,MUTED,false);text(hero,Display.last(this,u),12,MUTED,false);gap(content,12);
-        button(t("위젯 꾸미기","Customize widget"),true,()->startActivity(new Intent(this,WidgetStyleSettingsActivity.class)));
-        button(t("플로팅 위젯","Floating widget"),false,this::floatingOptions);
+        button(t("홈 위젯 꾸미기","Customize home widget"),true,()->openWidgetStyle(false));
+        button(t("플로팅 위젯 꾸미기","Customize floating widget"),true,()->openWidgetStyle(true));
+        button(t("플로팅 위젯 열기·닫기","Show / hide floating widget"),false,this::floatingOptions);
         button(t("홈 화면에 위젯 추가","Add widget to home screen"),false,this::pin);gap(content,20);
         if(busy)text(content,t("확인 중…","Checking…"),13,ACCENT,false);
         if(!localStatus.isEmpty())text(content,localStatus,13,0xffffd99b,false);
@@ -84,10 +85,13 @@ public final class MainActivity extends Activity {
         }
         button(t("자동 조회 상태 · 절전 설정","Auto refresh · Battery settings"),false,this::automaticStatus);
         gap(content,20);button(t("공식 사용량 화면","Official usage page"),false,()->browser("https://chatgpt.com/codex/settings/usage"));
-        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" 0.6.1")
+        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" 0.6.2")
             .setMessage(t("Codex의 주간 잔여량을 표시하는 비공식 위젯입니다. 일반 ChatGPT 모델의 통합 한도는 아닙니다.","An unofficial widget for the Codex weekly quota, not a combined limit for ChatGPT models."))
             .setPositiveButton("GitHub",(d,w)->browser("https://github.com/Husky-Bytes/WeeklyMeter")).setNegativeButton(t("닫기","Close"),null).show());
         button(t("글꼴 라이선스 · 상표 안내","Font licenses · Trademarks"),false,this::notices);
+    }
+    private void openWidgetStyle(boolean floating){
+        startActivity(new Intent(this,WidgetStyleSettingsActivity.class).putExtra(WidgetStyleSettingsActivity.EXTRA_FLOATING,floating));
     }
     private void refreshInterval(){
         LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(24),dp(8),dp(24),dp(8));
@@ -117,10 +121,9 @@ public final class MainActivity extends Activity {
     private void floatingOptions(){
         boolean shown=FloatingWidgetService.isActive();
         new AlertDialog.Builder(this).setTitle(t("플로팅 위젯","Floating widget"))
-            .setMessage(t("홈 위젯을 빠르게 3번 누르면 표시됩니다.\n\n누르기 · 새로고침\n끌기 · 이동\n길게 누르기 · 닫기\n\n홈 위젯과 꾸미기·크기를 따로 설정합니다. 표시 중에는 알림이 유지됩니다.",
-                "Tap the home widget 3 times quickly to show it.\n\nTap · Refresh\nDrag · Move\nLong press · Close\n\nStyle and size are separate from the home widget. A notification remains while enabled."))
+            .setMessage(t("홈 위젯을 빠르게 3번 누르면 표시됩니다.\n\n누르기 · 새로고침\n끌기 · 이동\n길게 누르기 · 닫기",
+                "Tap the home widget 3 times quickly to show it.\n\nTap · Refresh\nDrag · Move\nLong press · Close"))
             .setPositiveButton(shown?t("닫기","Hide"):t("띄우기","Show"),(d,w)->{if(shown){FloatingWidgetService.hide(this);render();}else requestFloating();})
-            .setNeutralButton(t("꾸미기·크기","Style & size"),(d,w)->startActivity(new Intent(this,WidgetStyleSettingsActivity.class).putExtra(WidgetStyleSettingsActivity.EXTRA_FLOATING,true)))
             .setNegativeButton(t("취소","Cancel"),null).show();
     }
     private void requestFloating(){

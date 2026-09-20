@@ -2,13 +2,17 @@ package dev.yerin.weeklymeter;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.appwidget.AppWidgetManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.*;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.*;
 import android.text.*;
+import android.util.SizeF;
 import android.view.*;
 import android.view.inputmethod.EditorInfo;
 import android.widget.*;
@@ -24,8 +28,8 @@ public final class WidgetStyleSettingsActivity extends Activity {
     private WidgetStyle current;
     private LinearLayout settings;
     private LinearLayout rootLayout,elementNavigation,navigation;
-    private LinearLayout previewTitle;
-    private FrameLayout previewStage;
+    private LinearLayout previewHeader,previewTitle;
+    private PreviewViewport previewStage;
     private final LinearLayout[] pages=new LinearLayout[4],textPanels=new LinearLayout[4],layoutPanels=new LinearLayout[4];
     private final Button[] categoryButtons=new Button[4];
     private Button elementPicker;
@@ -34,10 +38,12 @@ public final class WidgetStyleSettingsActivity extends Activity {
     private ScrollView scroll;
     private ImageView previewImage;
     private TextView previewWarning,previewCaption;
-    private Button squareButton,wideButton;
-    private boolean widePreview,updatingControls,compactPreview,tinyPreview,floating;
+    private Button previewSizeButton;
+    private boolean updatingControls,compactPreview,tinyPreview,floating;
     private int floatingWidth,floatingHeight;
-    private TextView floatingDimensions;
+    private List<HomeWidgetPreviewSizes.Size> homePreviewSizes=new ArrayList<>();
+    private String selectedHomeSizeKey="";
+    private float previewWidthDp,previewHeightDp;
     private String feedbackState="none";
     private String fullPreviewWarning="";
     private String displayedLanguage;
@@ -66,7 +72,8 @@ public final class WidgetStyleSettingsActivity extends Activity {
         super.onCreate(state);displayedLanguage=Texts.locale(this).getLanguage();initializeNames();floating=getIntent().getBooleanExtra(EXTRA_FLOATING,false);
         current=(floating?FloatingPreferences.style(this):WeeklyWidget.style(this)).copy();current.normalize();exampleNow=System.currentTimeMillis();
         floatingWidth=FloatingPreferences.widthDp(this);floatingHeight=FloatingPreferences.heightDp(this);
-        if(state!=null){selectedCategory=Math.max(0,Math.min(3,state.getInt("category",0)));selectedElement=Math.max(0,Math.min(3,state.getInt("element",0)));widePreview=state.getBoolean("wide",false);}
+        if(state!=null){selectedCategory=Math.max(0,Math.min(3,state.getInt("category",0)));selectedElement=Math.max(0,Math.min(3,state.getInt("element",0)));selectedHomeSizeKey=state.getString("preview_size","");}
+        if(!floating)readHomePreviewSizes();
         getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         // Own the insets on API 30+: do not combine a decor-resized content area with IME padding.
@@ -86,34 +93,26 @@ public final class WidgetStyleSettingsActivity extends Activity {
         scroll.addView(settings,new ScrollView.LayoutParams(-1,-2));root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         setContentView(root);root.requestFocus();buildSettings();updatePreview();
     }
-    @Override protected void onStart(){super.onStart();if(!Texts.locale(this).getLanguage().equals(displayedLanguage)){recreate();return;}updatePreview();}
-    @Override protected void onSaveInstanceState(Bundle state){flush();state.putInt("category",selectedCategory);state.putInt("element",selectedElement);state.putBoolean("wide",widePreview);super.onSaveInstanceState(state);}
+    @Override protected void onStart(){super.onStart();if(!Texts.locale(this).getLanguage().equals(displayedLanguage)){recreate();return;}if(!floating)readHomePreviewSizes();updatePreview();}
+    @Override protected void onSaveInstanceState(Bundle state){flush();state.putInt("category",selectedCategory);state.putInt("element",selectedElement);state.putString("preview_size",selectedHomeSizeKey);super.onSaveInstanceState(state);}
     @Override protected void onStop(){ui.removeCallbacks(endEffect);feedbackState="none";flush();super.onStop();}
     @Override protected void onDestroy(){ui.removeCallbacks(publish);ui.removeCallbacks(endEffect);super.onDestroy();}
 
     private void buildPreviewHeader(LinearLayout root){
-        LinearLayout header=new LinearLayout(this);header.setOrientation(LinearLayout.VERTICAL);header.setPadding(dp(12),dp(4),dp(12),dp(4));
+        LinearLayout header=new LinearLayout(this);previewHeader=header;header.setOrientation(LinearLayout.VERTICAL);header.setPadding(dp(12),dp(4),dp(12),dp(4));
         LinearLayout titleRow=new LinearLayout(this);previewTitle=titleRow;titleRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView title=new TextView(this);title.setText(floating?tr("플로팅 위젯 꾸미기","Floating widget style"):tr("위젯 꾸미기","Widget style"));title.setTextSize(19);title.setSingleLine(true);title.setEllipsize(TextUtils.TruncateAt.END);title.setTextColor(TEXT);title.setTypeface(Typeface.DEFAULT,Typeface.BOLD);titleRow.addView(title,new LinearLayout.LayoutParams(0,-2,1));
         titleRow.addView(compactButton(tr("기본값","Reset"),this::confirmDefaults),new LinearLayout.LayoutParams(dp(64),dp(48)));
         LinearLayout.LayoutParams doneLp=new LinearLayout.LayoutParams(dp(60),dp(48));doneLp.leftMargin=dp(6);titleRow.addView(compactButton(tr("완료","Done"),()->{finishEditing();flush();finish();}),doneLp);header.addView(titleRow);
-        LinearLayout previewRow=new LinearLayout(this);previewRow.setGravity(Gravity.CENTER_VERTICAL);
-        FrameLayout stage=new FrameLayout(this);previewStage=stage;stage.setPadding(dp(3),dp(3),dp(3),dp(3));
-        previewImage=new ImageView(this);previewImage.setScaleType(ImageView.ScaleType.FIT_CENTER);previewImage.setBackground(new Checkerboard());previewImage.setOnClickListener(v->showEffect("running"));
-        stage.addView(previewImage,new FrameLayout.LayoutParams(dp(67),dp(92),Gravity.CENTER));previewRow.addView(stage,new LinearLayout.LayoutParams(dp(152),dp(100)));
-        LinearLayout info=new LinearLayout(this);info.setOrientation(LinearLayout.VERTICAL);info.setPadding(dp(8),0,0,0);previewRow.addView(info,new LinearLayout.LayoutParams(0,-2,1));
-        if(floating){
-            floatingDimensions=text(info,"",13,TEXT,true);floatingDimensions.setGravity(Gravity.CENTER);
-            Button size=compactButton(tr("크기 조절","Resize"),()->{navigate(1,selectedElement);scroll.post(()->scroll.scrollTo(0,0));});info.addView(size,new LinearLayout.LayoutParams(-1,dp(48)));
-        }else{
-            LinearLayout modeRow=new LinearLayout(this);modeRow.setGravity(Gravity.CENTER_VERTICAL);
-            squareButton=compactButton("1 × 1",()->{widePreview=false;updatePreview();});wideButton=compactButton("2 × 1",()->{widePreview=true;updatePreview();});
-            squareButton.setMaxLines(1);squareButton.setEllipsize(TextUtils.TruncateAt.END);wideButton.setMaxLines(1);wideButton.setEllipsize(TextUtils.TruncateAt.END);
-            modeRow.addView(squareButton,new LinearLayout.LayoutParams(0,dp(48),1));LinearLayout.LayoutParams wideLp=new LinearLayout.LayoutParams(0,dp(48),1);wideLp.leftMargin=dp(4);modeRow.addView(wideButton,wideLp);info.addView(modeRow);
-        }
-        previewCaption=text(info,"",11,MUTED,false);previewCaption.setGravity(Gravity.CENTER);previewCaption.setMaxLines(3);header.addView(previewRow);
+        previewSizeButton=compactButton("",()->{if(floating){navigate(1,selectedElement);scroll.post(()->scroll.scrollTo(0,0));}else chooseHomePreviewSize();});
+        previewSizeButton.setMaxLines(2);previewSizeButton.setEllipsize(TextUtils.TruncateAt.END);header.addView(previewSizeButton,new LinearLayout.LayoutParams(-1,dp(48)));
+        previewCaption=text(header,"",11,MUTED,false);previewCaption.setGravity(Gravity.CENTER);previewCaption.setMaxLines(2);
+        previewStage=new PreviewViewport(this);previewStage.setBackgroundColor(0xff222832);previewStage.setContentDescription(tr("실제 크기 미리보기. 넘치는 부분은 끌어서 확인할 수 있습니다.","Full-size preview. Drag to inspect overflowing content."));
+        previewImage=new ImageView(this);previewImage.setScaleType(ImageView.ScaleType.FIT_XY);previewImage.setBackground(new Checkerboard());previewImage.setOnClickListener(v->showEffect("running"));
+        previewStage.addView(previewImage,new ViewGroup.LayoutParams(dp(128),dp(96)));header.addView(previewStage,new LinearLayout.LayoutParams(-1,dp(96)));
         previewWarning=text(header,"",11,0xffffd398,false);previewWarning.setMinHeight(0);previewWarning.setMaxLines(2);previewWarning.setEllipsize(TextUtils.TruncateAt.END);previewWarning.setGravity(Gravity.CENTER);previewWarning.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         previewWarning.setOnClickListener(v->{if(!fullPreviewWarning.isEmpty())new AlertDialog.Builder(this).setTitle(tr("미리보기 표시 안내","Preview details")).setMessage(fullPreviewWarning).setPositiveButton(tr("확인","OK"),null).show();});
+        header.addOnLayoutChangeListener((view,left,top,right,bottom,oldLeft,oldTop,oldRight,oldBottom)->adjustPinnedLayout());
         root.addView(header,new LinearLayout.LayoutParams(-1,-2));View line=new View(this);line.setBackgroundColor(0xff313a46);root.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
     }
     private void buildNavigation(LinearLayout root){
@@ -127,13 +126,14 @@ public final class WidgetStyleSettingsActivity extends Activity {
     }
     private Button navigationButton(LinearLayout row,String title,Runnable action){Button button=compactButton(title,action);button.setTextSize(11);int firstLine=title.indexOf('\n');SpannableString label=new SpannableString(title);if(firstLine>0){label.setSpan(new android.text.style.StyleSpan(Typeface.BOLD),0,firstLine,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);label.setSpan(new android.text.style.RelativeSizeSpan(1.2f),0,firstLine,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);}button.setText(label);button.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);button.setPadding(dp(9),dp(8),dp(9),dp(8));button.setContentDescription(title);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.setMargins(dp(2),dp(2),dp(2),dp(2));row.addView(button,lp);return button;}
     private void adjustPinnedLayout(){
-        if(rootLayout==null||previewStage==null||rootLayout.getHeight()==0)return;
-        int available=rootLayout.getHeight()-rootLayout.getPaddingTop()-rootLayout.getPaddingBottom();boolean compact=available<dp(560),tiny=available<dp(360);
-        boolean modeChanged=compact!=compactPreview||tiny!=tinyPreview;compactPreview=compact;tinyPreview=tiny;
-        attachNavigation();if(!modeChanged)return;
-        previewTitle.setVisibility(tiny?View.GONE:View.VISIBLE);previewCaption.setVisibility(compact?View.GONE:View.VISIBLE);
-        previewWarning.setMaxLines(compact?1:2);previewWarning.setMinHeight(0);
-        LinearLayout.LayoutParams stage=(LinearLayout.LayoutParams)previewStage.getLayoutParams();stage.width=dp(tiny?82:compact?108:152);stage.height=dp(tiny?52:compact?70:100);previewStage.setLayoutParams(stage);updatePreview();
+        if(rootLayout==null||previewStage==null||previewHeader==null||rootLayout.getHeight()==0)return;
+        int available=Math.max(1,rootLayout.getHeight()-rootLayout.getPaddingTop()-rootLayout.getPaddingBottom());compactPreview=available<dp(420);tinyPreview=available<dp(300);
+        attachNavigation();previewTitle.setVisibility(compactPreview?View.GONE:View.VISIBLE);previewCaption.setVisibility(tinyPreview?View.GONE:View.VISIBLE);
+        previewWarning.setMaxLines(1);previewWarning.setVisibility(tinyPreview||fullPreviewWarning.isEmpty()?View.GONE:View.VISIBLE);
+        int chrome=Math.max(0,previewHeader.getMeasuredHeight()-previewStage.getMeasuredHeight())+dp(1);
+        int wanted=PreviewGeometry.pixels(previewHeightDp,getResources().getDisplayMetrics().density);
+        int height=PreviewGeometry.viewportHeight(available,chrome,wanted);
+        LinearLayout.LayoutParams stage=(LinearLayout.LayoutParams)previewStage.getLayoutParams();if(stage.height!=height){stage.height=height;previewStage.setLayoutParams(stage);}
     }
     private void attachNavigation(){
         if(settings==null||navigation==null||rootLayout==null)return;
@@ -238,14 +238,45 @@ public final class WidgetStyleSettingsActivity extends Activity {
     private void rememberColor(int color){LinkedHashSet<Integer> values=new LinkedHashSet<>();values.add(color);for(int value:recentColors())values.add(value);StringBuilder saved=new StringBuilder();int i=0;for(int value:values){if(i++==6)break;if(saved.length()>0)saved.append(',');saved.append(WidgetStyle.rgb(value));}getSharedPreferences(appearanceUiPrefs(),MODE_PRIVATE).edit().putString("recent_colors",saved.toString()).apply();}
     private void move(int id,int delta){int index=indexOf(id),next=index+delta;if(index<0||next<0||next>=current.order.length)return;int other=current.order[next];current.order[next]=id;current.order[index]=other;changed();}
     private int indexOf(int id){for(int i=0;i<current.order.length;i++)if(current.order[i]==id)return i;return 0;}
+    private void readHomePreviewSizes(){
+        List<HomeWidgetPreviewSizes.Size> found=new ArrayList<>();
+        try{
+            AppWidgetManager manager=AppWidgetManager.getInstance(this);int[] ids=manager.getAppWidgetIds(new ComponentName(this,WeeklyWidget.class));
+            if(ids!=null){Arrays.sort(ids);for(int id:ids)try{
+                Bundle options=manager.getAppWidgetOptions(id);if(options==null)continue;List<float[]> raw=new ArrayList<>();
+                if(Build.VERSION.SDK_INT>=31)try{ArrayList<SizeF> sizes=options.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES);if(sizes!=null)for(SizeF size:sizes)if(size!=null)raw.add(new float[]{size.getWidth(),size.getHeight()});}catch(RuntimeException ignored){}
+                found.addAll(HomeWidgetPreviewSizes.host(id,raw.toArray(new float[0][]),
+                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,0),options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,0),
+                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH,0),options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,0),
+                    getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE));
+            }catch(RuntimeException ignored){}}
+        }catch(RuntimeException ignored){}
+        if(found.isEmpty())found.addAll(HomeWidgetPreviewSizes.estimates());homePreviewSizes=found;
+        boolean retained=false;for(HomeWidgetPreviewSizes.Size size:found)if(size.key().equals(selectedHomeSizeKey)){retained=true;break;}
+        if(!retained)selectedHomeSizeKey=found.get(0).key();
+    }
+    private HomeWidgetPreviewSizes.Size homePreviewSize(){for(HomeWidgetPreviewSizes.Size size:homePreviewSizes)if(size.key().equals(selectedHomeSizeKey))return size;return homePreviewSizes.get(0);}
+    private String homeSizeLabel(HomeWidgetPreviewSizes.Size size){
+        if(size.estimated)return (size.widthDp<100?"1 × 1":"2 × 1")+tr(" 예상 · "," estimate · ")+sizeText(size.widthDp,size.heightDp);
+        int number=0,previous=Integer.MIN_VALUE;for(HomeWidgetPreviewSizes.Size entry:homePreviewSizes){if(entry.widgetId!=previous){number++;previous=entry.widgetId;}if(entry.widgetId==size.widgetId)break;}
+        return tr("홈 위젯 ","Home widget ")+number+" · "+sizeText(size.widthDp,size.heightDp);
+    }
+    private String sizeText(float width,float height){return sizeNumber(width)+" × "+sizeNumber(height)+" dp";}
+    private static String sizeNumber(float value){return value==Math.round(value)?Integer.toString(Math.round(value)):String.format(Locale.ROOT,"%.1f",value);}
+    private void chooseHomePreviewSize(){
+        finishEditing();readHomePreviewSizes();String[] labels=new String[homePreviewSizes.size()];int selected=0;
+        for(int i=0;i<labels.length;i++){HomeWidgetPreviewSizes.Size size=homePreviewSizes.get(i);labels[i]=homeSizeLabel(size);if(size.key().equals(selectedHomeSizeKey))selected=i;}
+        new AlertDialog.Builder(this).setTitle(tr("미리보기 크기","Preview size")).setSingleChoiceItems(labels,selected,(dialog,which)->{selectedHomeSizeKey=homePreviewSizes.get(which).key();previewStage.scrollTo(0,0);updatePreview();dialog.dismiss();}).setNegativeButton(tr("닫기","Close"),null).show();
+    }
     private void updatePreview(){
-        if(previewImage==null||current==null)return;int width=floating?floatingWidth:widePreview?138:64,renderHeight=floating?floatingHeight:88;
-        int height=tinyPreview?44:compactPreview?62:92;float scale=floating?Math.min((tinyPreview?76f:compactPreview?102f:146f)/width,(float)height/renderHeight):(float)height/renderHeight;
-        FrameLayout.LayoutParams params=(FrameLayout.LayoutParams)previewImage.getLayoutParams();params.width=dp(Math.max(1,Math.round(width*scale)));params.height=dp(Math.max(1,Math.round(renderHeight*scale)));previewImage.setLayoutParams(params);
-        Usage example=new Usage("preview","",27,exampleNow/1000+2*86400,exampleNow);WidgetRenderer.Result rendered=WidgetRenderer.render(this,example,current,width,renderHeight,current.feedbackEnabled?feedbackState:"none");
+        if(previewImage==null||current==null)return;HomeWidgetPreviewSizes.Size home=floating?null:homePreviewSize();previewWidthDp=floating?floatingWidth:home.widthDp;previewHeightDp=floating?floatingHeight:home.heightDp;
+        float density=getResources().getDisplayMetrics().density;ViewGroup.LayoutParams params=previewImage.getLayoutParams();int width=PreviewGeometry.pixels(previewWidthDp,density),height=PreviewGeometry.pixels(previewHeightDp,density);
+        if(params.width!=width||params.height!=height){params.width=width;params.height=height;previewImage.setLayoutParams(params);}
+        Usage example=new Usage("preview","",27,exampleNow/1000+2*86400,exampleNow);WidgetRenderer.Result rendered=WidgetRenderer.render(this,example,current,previewWidthDp,previewHeightDp,current.feedbackEnabled?feedbackState:"none");
         previewImage.setImageBitmap(rendered.bitmap);previewImage.setContentDescription(tr("미리보기. ","Preview. ")+rendered.accessibility+tr(". 누르면 효과 미리보기",". Tap to preview feedback."));fullPreviewWarning=rendered.warning==null?"":rendered.warning;previewWarning.setText(fullPreviewWarning);previewWarning.setVisibility(fullPreviewWarning.isEmpty()?View.GONE:View.VISIBLE);previewWarning.setContentDescription(fullPreviewWarning.isEmpty()?(floating?tr("표시 경고 없음. 플로팅 위젯에 자동 저장","No display warnings. Auto-saved to the floating widget."):tr("표시 경고 없음. 홈 화면 위젯에 자동 저장","No display warnings. Auto-saved to home-screen widgets.")):fullPreviewWarning+tr(". 누르면 전체 안내",". Tap for details."));previewCaption.setText(tr("미리보기 · 73%","Preview · 73%"));
-        if(floating)floatingDimensions.setText(floatingWidth+" × "+floatingHeight+" dp");
-        else{squareButton.setTextColor(!widePreview?BG:TEXT);squareButton.setBackground(round(!widePreview?ACCENT:0xff28313d,10));wideButton.setTextColor(widePreview?BG:TEXT);wideButton.setBackground(round(widePreview?ACCENT:0xff28313d,10));}
+        previewSizeButton.setText(floating?sizeText(previewWidthDp,previewHeightDp)+tr(" · 크기 조절"," · Resize"):homeSizeLabel(home)+"  ▾");
+        previewCaption.setText((floating?tr("선택 크기 1:1","Selected size 1:1"):home.estimated?tr("예상 크기 1:1","Estimated size 1:1"):tr("홈 위젯 크기 1:1","Home widget size 1:1"))+tr(" · 73% 예시 · 넘치면 끌기"," · Sample 73% · Drag if clipped"));
+        adjustPinnedLayout();previewHeader.post(this::adjustPinnedLayout);
     }
     private void showEffect(String state){if(!current.feedbackEnabled){Toast.makeText(this,tr("효과 표시를 켜 주세요.","Enable refresh indicators to preview them."),Toast.LENGTH_SHORT).show();return;}feedbackState=state;ui.removeCallbacks(endEffect);updatePreview();ui.postDelayed(endEffect,current.feedbackDurationMs);}
     private void changed(){current.normalize();refreshControls();updatePreview();ui.removeCallbacks(publish);ui.postDelayed(publish,220);}

@@ -2,11 +2,15 @@ package dev.yerin.weeklymeter;
 
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.appwidget.AppWidgetManager;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.provider.Settings;
@@ -15,9 +19,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inspector.WindowInspector;
+import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.ScrollView;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -28,7 +34,7 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
     private int checks;
     private final AtomicBoolean finished=new AtomicBoolean();
     private Context target;
-    private Activity styleActivity,intervalActivity;
+    private Activity styleActivity,intervalActivity,navigationActivity;
     private interface Task {void run() throws Exception;}
     private interface Value<T> {T get() throws Exception;}
     private interface Condition {boolean get() throws Exception;}
@@ -55,7 +61,7 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
     private void complete(int code,Bundle result){if(finished.compareAndSet(false,true))finish(code,result);}
     private void test() throws Exception {
         check(Settings.canDrawOverlays(target),"Overlay permission must be granted by test setup");
-        check("0.6.1".equals(target.getPackageManager().getPackageInfo(target.getPackageName(),0).versionName),"Target APK version is 0.6.1");
+        check("0.6.2".equals(target.getPackageManager().getPackageInfo(target.getPackageName(),0).versionName),"Target APK version is 0.6.2");
         check(WidgetStyle.defaults().overallOpacity==100,"Overall opacity defaults to the original full visibility");
         bitmapOpacity();
         main(()->{
@@ -68,14 +74,14 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
             FloatingPreferences.saveSize(target,160,120);
         });
         intervalSettings();
-        Intent style=new Intent(target,WidgetStyleSettingsActivity.class).putExtra(WidgetStyleSettingsActivity.EXTRA_FLOATING,true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        styleActivity=startActivitySync(style);waitForIdleSync();
+        styleActivity=mainStyleEntries();waitForIdleSync();
         check(mainValue(()->(Boolean)field(styleActivity,"floating")),"Floating settings Activity opens the floating configuration");
         check(mainValue(()->((ImageView)field(styleActivity,"previewImage")).getDrawable()!=null),"Settings preview is a real rendered Android image");
         check(FloatingPreferences.widthDp(target)==160&&FloatingPreferences.heightDp(target)==120,"Settings retains independent floating size");
         check(WidgetAppearance.load(target,"widget_style").background==0xff112233&&FloatingPreferences.style(target).background==0xff445566,"Home and floating styles remain independent");
         check(WidgetAppearance.load(target,"widget_style").overallOpacity==73&&FloatingPreferences.style(target).overallOpacity==100,"Home and floating overall opacity persist independently");
         check(RefreshFeedback.currentRequestId(target)==0,"Opening settings does not start a refresh");
+        fullSizePreview();
 
         main(()->FloatingWidgetService.show(target));
         await(()->FloatingWidgetService.isShowing(),8000,"Overlay attaches");
@@ -127,6 +133,123 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
         check(FloatingWidgetService.isShowing(),"Manual-refresh failure does not close overlay");
         cleanup();
         await(()->!FloatingWidgetService.isActive()&&!FloatingWidgetService.isShowing(),3000,"Explicit hide cleans foreground overlay state");
+    }
+    private Activity mainStyleEntries()throws Exception{
+        navigationActivity=startActivitySync(new Intent(target,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));waitForIdleSync();
+        await(()->mainValue(()->!(Boolean)field(navigationActivity,"busy")),3000,"Main screen finishes local-only account-state check");
+        Button[] entries=mainValue(()->new Button[]{styleEntry(false),styleEntry(true)});
+        check(mainValue(()->entries[0].getParent()==entries[1].getParent()),"Home and floating style entries share the same main-screen parent");
+        check(mainValue(()->((ViewGroup)entries[0].getParent()).indexOfChild(entries[1])==((ViewGroup)entries[0].getParent()).indexOfChild(entries[0])+1),"Home and floating style entries are adjacent peers");
+        check(mainValue(()->entries[0].getCurrentTextColor()==entries[1].getCurrentTextColor()&&entries[0].getTextSize()==entries[1].getTextSize()&&entries[0].getMinHeight()==entries[1].getMinHeight()),"Both style entries have matching text and button dimensions");
+        check(mainValue(()->backgroundColor(entries[0])==backgroundColor(entries[1])&&backgroundColor(entries[0])==(Integer)field(null,MainActivity.class,"ACCENT")),"Both style entries use the same primary background color");
+        main(()->captureWindow(navigationActivity,"main-customization.png"));
+        styleActivity=openStyleEntry(false);
+        check(mainValue(()->!(Boolean)field(styleActivity,"floating")),"One home-style button click opens the home editor directly");
+        check(AppWidgetManager.getInstance(target).getAppWidgetIds(new ComponentName(target,WeeklyWidget.class)).length==0,"Isolated emulator has no installed home widget for estimate fixture");
+        check(mainValue(()->{
+            String text=((Button)field(styleActivity,"previewSizeButton")).getText().toString().toLowerCase(java.util.Locale.ROOT);
+            return text.contains("예상")||text.contains("estimate");
+        }),"Home preview labels its size as estimated when no host widget exists");
+        main(()->styleActivity.finish());waitForIdleSync();
+        await(()->mainValue(()->!(Boolean)field(navigationActivity,"busy")),3000,"Main screen resumes without a usage request");
+        Activity floating=openStyleEntry(true);
+        check(!FloatingWidgetService.isActive(),"Opening floating style does not show the overlay or require a nested menu");
+        return floating;
+    }
+    private Button styleEntry(boolean floating){
+        Button button=findExactButton(navigationActivity.getWindow().getDecorView(),floating?"플로팅 위젯 꾸미기":"홈 위젯 꾸미기",floating?"Customize floating widget":"Customize home widget");
+        if(button==null)throw new AssertionError("Main-screen style entry was not found: "+floating);return button;
+    }
+    private Activity openStyleEntry(boolean floating)throws Exception{
+        ActivityMonitor monitor=addMonitor(WidgetStyleSettingsActivity.class.getName(),null,false);
+        try{main(()->styleEntry(floating).performClick());Activity activity=waitForMonitorWithTimeout(monitor,4000);check(activity!=null,"Single main-screen style click starts an editor Activity (floating="+floating+")");return activity;}
+        finally{removeMonitor(monitor);}
+    }
+    private static int backgroundColor(Button button){return ((GradientDrawable)button.getBackground()).getColor().getDefaultColor();}
+    private static Button findExactButton(View view,String ko,String en){
+        if(view instanceof Button){String text=((Button)view).getText().toString();if(text.equals(ko)||text.equals(en))return (Button)view;}
+        if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++){Button found=findExactButton(group.getChildAt(i),ko,en);if(found!=null)return found;}}return null;
+    }
+    private void fullSizePreview()throws Exception{
+        final float density=styleActivity.getResources().getDisplayMetrics().density;
+        final int width160=Math.round(160*density),height120=Math.round(120*density),width300=Math.round(300*density),height240=Math.round(240*density);
+        await(()->mainValue(()->preview().getWidth()==width160&&preview().getHeight()==height120),3000,"Floating preview measures exactly 160 by 120 dp at display density");
+        main(()->captureWindow(styleActivity,"floating-preview-160x120.png"));
+        check(mainValue(()->preview().getScaleX()==1f&&preview().getScaleY()==1f),"Preview ImageView has no extra view-level shrink transform");
+        int[] fixed=mainValue(()->location(stage()));int[] imageFixed=mainValue(()->location(preview()));
+        main(()->settingsScroll().scrollTo(0,Integer.MAX_VALUE));waitForIdleSync();
+        check(mainValue(()->settingsScroll().getScrollY()>0),"Settings content actually scrolls beneath the preview");
+        check(mainValue(()->java.util.Arrays.equals(fixed,location(stage()))&&java.util.Arrays.equals(imageFixed,location(preview()))),"Preview viewport and image stay fixed while settings scroll");
+        main(()->{settingsScroll().scrollTo(0,0);((Button[])field(styleActivity,"categoryButtons"))[1].performClick();});waitForIdleSync();
+        main(()->setPreviewDimensions(300,240));waitForIdleSync();
+        await(()->mainValue(()->preview().getWidth()==width300&&preview().getHeight()==height240),3000,"Actual size inputs resize preview to 300 by 240 dp without fitting it down");
+        check(FloatingPreferences.widthDp(target)==300&&FloatingPreferences.heightDp(target)==240,"Actual size inputs persist the chosen floating dimensions");
+        int oldWidth=styleActivity.getWindow().getAttributes().width,oldHeight=styleActivity.getWindow().getAttributes().height;
+        try{
+            main(()->styleActivity.getWindow().setLayout(Math.round(220*density),Math.round(340*density)));waitForIdleSync();
+            await(()->mainValue(()->stage().getWidth()<width300&&stage().getHeight()<height240),3000,"A small app window constrains the preview viewport on both axes");
+            check(mainValue(()->preview().getWidth()==width300&&preview().getHeight()==height240),"Small viewport does not reduce the preview's 1:1 pixel dimensions");
+            main(()->{
+                View viewport=stage();viewport.scrollTo(0,0);long now=SystemClock.uptimeMillis();
+                float x=Math.min(100,viewport.getWidth()/2f),y=Math.min(100,viewport.getHeight()/2f);
+                event(viewport,now,now,MotionEvent.ACTION_DOWN,x,y);
+                event(viewport,now,now+40,MotionEvent.ACTION_MOVE,x-40,y-40);
+                // The first intercepted MOVE cancels the clickable ImageView child.
+                // A subsequent MOVE reaches the viewport's own touch handler.
+                event(viewport,now,now+80,MotionEvent.ACTION_MOVE,x-70,y-70);
+                event(viewport,now,now+120,MotionEvent.ACTION_UP,x-70,y-70);
+            });
+            check(mainValue(()->stage().getScrollX()>0&&stage().getScrollY()>0),"A real preview drag gesture pans on both axes");
+            check(mainValue(()->"none".equals(field(styleActivity,"feedbackState"))),"Panning does not accidentally activate the preview click effect");
+            main(()->stage().scrollTo(Integer.MAX_VALUE,Integer.MAX_VALUE));waitForIdleSync();
+            check(mainValue(()->stage().getScrollX()>0&&stage().getScrollY()>0),"Oversized preview can pan on both axes");
+            check(mainValue(()->stage().getScrollX()==maxPreviewScrollX()&&stage().getScrollY()==maxPreviewScrollY()),"Positive preview panning clamps to the content edges");
+            main(()->stage().scrollTo(-10000,-10000));waitForIdleSync();
+            check(mainValue(()->stage().getScrollX()==0&&stage().getScrollY()==0),"Negative preview panning clamps to zero");
+            check(mainValue(()->settingsScroll().getHeight()>0),"Settings retain a usable scrolling viewport beside the pinned preview");
+        }finally{
+            main(()->{styleActivity.getWindow().setLayout(oldWidth,oldHeight);stage().scrollTo(0,0);});waitForIdleSync();
+            main(()->setPreviewDimensions(160,120));waitForIdleSync();
+        }
+        main(()->setPreviewDimensions(360,300));waitForIdleSync();
+        await(()->mainValue(()->preview().getWidth()==Math.round(360*density)&&preview().getHeight()==Math.round(300*density)),3000,"Maximum-size preview still measures 360 by 300 dp without shrinking");
+        main(()->{stage().scrollTo(0,0);captureWindow(styleActivity,"floating-preview-360x300.png");setPreviewDimensions(160,120);});waitForIdleSync();
+        await(()->mainValue(()->preview().getWidth()==width160&&preview().getHeight()==height120),3000,"Restoring size returns the preview to its original 1:1 dimensions");
+        check(RefreshFeedback.currentRequestId(target)==0,"Preview resizing, scrolling and panning never query usage");
+    }
+    private ImageView preview()throws Exception{return (ImageView)field(styleActivity,"previewImage");}
+    private View stage()throws Exception{return (View)field(styleActivity,"previewStage");}
+    private ScrollView settingsScroll()throws Exception{return (ScrollView)field(styleActivity,"scroll");}
+    private static int[] location(View view){int[] point=new int[2];view.getLocationOnScreen(point);return point;}
+    private int maxPreviewScrollX()throws Exception{return Math.max(0,preview().getRight()+stage().getPaddingRight()-stage().getWidth());}
+    private int maxPreviewScrollY()throws Exception{return Math.max(0,preview().getBottom()+stage().getPaddingBottom()-stage().getHeight());}
+    private void setPreviewDimensions(int width,int height)throws Exception{
+        EditText widthInput=findNumericInput(styleActivity.getWindow().getDecorView(),"너비 직접 입력","Width direct input");
+        EditText heightInput=findNumericInput(styleActivity.getWindow().getDecorView(),"높이 직접 입력","Height direct input");
+        if(widthInput==null||heightInput==null)throw new AssertionError("Floating width/height inputs were not found");
+        widthInput.requestFocus();widthInput.setText(String.valueOf(width));widthInput.onEditorAction(EditorInfo.IME_ACTION_DONE);
+        heightInput.requestFocus();heightInput.setText(String.valueOf(height));heightInput.onEditorAction(EditorInfo.IME_ACTION_DONE);
+    }
+    private static EditText findNumericInput(View view,String ko,String en){
+        if(view instanceof EditText){String description=String.valueOf(view.getContentDescription());if(description.startsWith(ko)||description.startsWith(en))return (EditText)view;}
+        if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++){EditText found=findNumericInput(group.getChildAt(i),ko,en);if(found!=null)return found;}}return null;
+    }
+    private void captureWindow(Activity activity,String name)throws Exception{
+        View decor=activity.getWindow().getDecorView();
+        if(decor.getWidth()<=0||decor.getHeight()<=0)throw new AssertionError("App-owned view is not laid out for visual capture");
+        java.io.File external=target.getExternalFilesDir(null);
+        if(external==null)throw new IllegalStateException("App-scoped test-output directory unavailable");
+        java.io.File directory=new java.io.File(external,"runtime-v062");
+        if(!directory.isDirectory()&&!directory.mkdirs())throw new IllegalStateException("Could not create app-scoped visual-output directory");
+        java.io.File output=new java.io.File(directory,name);
+        Bitmap bitmap=Bitmap.createBitmap(decor.getWidth(),decor.getHeight(),Bitmap.Config.ARGB_8888);
+        try(java.io.FileOutputStream stream=new java.io.FileOutputStream(output)){
+            // Only this synthetic-fixture Activity's own view tree is drawn. This does
+            // not capture the screen, another app, a system dialog or account content.
+            decor.draw(new Canvas(bitmap));
+            if(!bitmap.compress(Bitmap.CompressFormat.PNG,100,stream))throw new IllegalStateException("Visual PNG encoding failed");
+        }finally{bitmap.recycle();}
+        Bundle status=new Bundle();status.putString("stream","VISUAL_CAPTURE "+output.getAbsolutePath()+"\n");sendStatus(1,status);
     }
     private void bitmapOpacity()throws Exception{
         int[] report=mainValue(()->{
@@ -228,7 +351,7 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
     private static EditText findInput(View view){if(view instanceof EditText)return (EditText)view;if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++){EditText found=findInput(group.getChildAt(i));if(found!=null)return found;}}return null;}
     private static Button findPreset(View view,String minutes){if(view instanceof Button&&((Button)view).getText().toString().startsWith(minutes))return (Button)view;if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++){Button found=findPreset(group.getChildAt(i),minutes);if(found!=null)return found;}}return null;}
     private Usage sample(double used){long now=System.currentTimeMillis();return new Usage("codex","Synthetic emulator fixture",used,now/1000+86400,now);}
-    private void cleanup() throws Exception {if(target!=null)main(()->{FloatingWidgetService.hide(target);target.stopService(new Intent(target,WidgetRefreshService.class));if(styleActivity!=null)styleActivity.finish();if(intervalActivity!=null)intervalActivity.finish();});}
+    private void cleanup() throws Exception {if(target!=null)main(()->{FloatingWidgetService.hide(target);target.stopService(new Intent(target,WidgetRefreshService.class));if(styleActivity!=null)styleActivity.finish();if(intervalActivity!=null)intervalActivity.finish();if(navigationActivity!=null)navigationActivity.finish();});}
     private static Object field(Object object,String name)throws Exception{return field(object,object.getClass(),name);}
     private static Object field(Object object,Class<?> type,String name)throws Exception{Field field=type.getDeclaredField(name);field.setAccessible(true);return field.get(object);}
     private FloatingWidgetService service()throws Exception{return (FloatingWidgetService)field(null,FloatingWidgetService.class,"instance");}

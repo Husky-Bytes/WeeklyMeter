@@ -1,277 +1,151 @@
-WeeklyMeter 0.6.1 — overall opacity and custom automatic-refresh interval, 2026-09-20
+WeeklyMeter 0.6.2 — selected-size preview and direct customization entries, 2026-09-20
 
-PASS: 49 core parsing/network-boundary checks.
-PASS: 71 usage/JSON/bucket scenarios, including 1001 percentage samples.
-PASS: 1323 widget-style/date/layout/bitmap-budget/internal-spacing/overall-alpha checks, pure Java.
-PASS: 40 manual-refresh feedback/expiry checks, pure Java.
-PASS: 12 actual bundled font parsing/Korean-numeric glyph/license checks, JDK AWT.
-PASS: 91 authentication/refresh checks, real Api/Repo with fake HTTPS and storage.
-PASS: 167 periodic scheduler/job/feedback/diagnostic lifecycle checks with Android/Repo doubles.
-PASS: 107 refresh-interval input/range/default/millisecond policy checks, pure Java.
-PASS: 287 browser PKCE/callback checks, including synthetic real loopback sockets.
-PASS: 28 browser login service lifecycle checks with fake Android/browser/Repo.
-PASS: 118 manual foreground service checks with real service/Scheduler/UsageJob/Feedback
-and fake Android/Repo. No Activity class, real account or network exists in that harness.
-PASS: 2227 message-localization checks; 76 runtime message occurrences audited against
-the bilingual display catalog, plus strict structured HTTP errors. Cached legacy
-messages use concise/formal Korean or English at display time. Unknown labels remain
-unchanged. No translation network is used.
-PASS: 39 primary-system-language/manual-choice policy checks, pure Java.
-PASS: 59 Android language API/context/preference/receiver checks with platform doubles.
-PASS: 1006 read-only background-access checks with production BackgroundAccess and
-synthetic Android power/activity/job services. No phone settings are changed.
-PASS: 339 widget-publication checks using production WeeklyWidget/Store/Usage/style
-code with fake Android, host, Bitmap and renderer. These inspect publication payloads,
-not real Canvas pixels or launcher behavior.
-PASS: 5947 floating-style/persistence checks using production appearance/preferences
-code and strict named SharedPreferences doubles. No real Activity or Canvas is run.
-PASS: 1160 floating geometry/gesture checks and service source-contract assertions.
-These do not instantiate a real overlay service or Android window.
-PASS: 36 APK asset checks: raw ZIP paths, duplicates, exact ten names, bytes/lengths.
-The 36 checks run before signing AND on the signed final APK; counted only once.
-TOTAL: 13106 executable Java logic/lifecycle/font/source-contract/APK checks.
-Increase over 0.6.0: 227 style/alpha + 152 appearance/persistence
-+ 19 periodic lifecycle + 107 custom-interval checks.
-The 1001 sampled percentages are part of the 71 usage scenarios, not an extra total.
-No real account or Android runtime is represented by the 13106 checks above.
-Separate emulator runtime checks are reported below and are not added to that total.
-PASS: 49 additional static adaptive-icon resource and safe-zone geometry checks.
-PASS: 18 XML files, resource references, manifest components and restricted permissions.
-PASS: Full Windows Android compilation, DEX, alignment, signing and APK verification.
-
-Build: JDK 21.0.8; Android platform 36; build-tools 35.0.0; minSdk26/targetSdk35.
-Package dev.yerin.weeklymeter; versionCode11/versionName0.6.1.
+CURRENT RELEASE — build-v062 completed with exit code 0
+Package: dev.yerin.weeklymeter
+versionCode: 12; versionName: 0.6.2; minSdk26 / targetSdk35
+Distribution filename: WeeklyMeter-0.6.2.apk
+PASS: 15,020 host executable checks; every previous suite was rerun on this build.
+PASS: 49 separate static icon checks and 18 XML files/resource/manifest checks.
+PASS: Windows Android compilation, aapt2 packaging, DEX, alignment and signing.
+PASS: zipalign -c 4 and APK v2/v3 signature verification.
+APK size: 3643452 bytes
+APK SHA256: fcfa6cab1ac7384b24158873044571f4e423b6e1f390e5cb0eed8850cdfa6bb6
+Signing certificate SHA256: abfc4290289a8df7abffe951cf096fcd1fbe3972f0887d95390bab5a4d5816ab
+Preserved signing certificate supports an update over the existing installation.
+Build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0.
 Compiled locales: default English, explicit English, Korean.
-Compiled application labels: WeeklyMeter / 주간 잔여량.
-APK signature v2/v3 verified; preserved personal update signing certificate.
-APK size: 3639356 bytes; zipalign -c 4 passed.
-APK SHA256: 1be1cebbfad9406dc8c2b8b039c84575dcf6cd1f0abd6682ed2b9789fe223dcb
-Certificate SHA256: abfc4290289a8df7abffe951cf096fcd1fbe3972f0887d95390bab5a4d5816ab
+Application labels: WeeklyMeter / 주간 잔여량.
 
-0.6.1 new behavior and host checks:
-Overall opacity defaults to 100, normalizes to 0..100, is copied and persisted
-independently for home/floating appearance, and defaults to 100 when absent from old
-style_v3/legacy preferences. Tests cover all 101 percent-to-alpha values, integer
-bounds, preserving original background/text colors, copies, roundtrips, wrong types,
-out-of-range saved values, and resets without affecting the other widget mode.
-The production renderer composites background, text, logos and feedback into one
-layer before applying the overall alpha; it does not fade overlapping elements
-independently. At 100 it preserves the existing rendering path. Separate Android
-Canvas pixel/runtime verification is recorded below for the final 0.6.1 APK.
+HOST CHECKS — executed on 0.6.2
+49 core parsing/network-boundary checks.
+71 usage/JSON/bucket scenarios, including 1001 percentage samples.
+1323 style/date/layout/bitmap-budget/internal-spacing/overall-alpha checks.
+40 feedback/expiry checks.
+12 bundled font parsing/Korean-numeric glyph/license checks using JDK AWT.
+91 authentication/refresh checks with production Api/Repo and fake HTTPS/storage.
+167 periodic scheduler/job/feedback/diagnostic lifecycle checks with platform doubles.
+107 custom refresh-interval input/range/default/millisecond policy checks.
+287 browser PKCE/callback checks, including synthetic real loopback sockets.
+28 browser login service lifecycle checks with fake Android/browser/Repo.
+118 manual foreground service/triple-tap/independent-feedback checks.
+2227 message-localization checks, with 76 runtime message occurrences audited.
+39 primary-system-language/manual-choice policy checks.
+59 Android language API/context/preference/receiver checks with platform doubles.
+1006 read-only background-status checks with synthetic power/activity/job services.
+339 publication checks with production widget/store/style and fake host/renderer.
+5947 floating style/persistence checks with strict named preference doubles.
+1160 floating geometry/gesture and service source-contract checks.
+1914 selected-size preview geometry/host-option checks, pure Java.
+36 APK asset checks, run before and after signing but counted once.
+TOTAL: 15020 host executable checks. The 1001 sampled percentages are included in
+the 71 scenarios, not added again. Static and emulator checks are separate.
+No physical device, real account or actual usage HTTP response is represented by
+this host total. Fake host payload checks are not real Canvas/launcher pixel tests.
 
-The shared interval policy accepts integer minutes 15..10080, with 15/30/60 shortcuts.
-Invalid user input is rejected without storing it; invalid/wrong-type previously
-saved preferences fall back to 15. Tests cover parse/range bounds, long arithmetic,
-custom interval scheduling and retention, unchanged-interval no-op behavior and
-existing automatic-refresh eligibility. Changing the interval adjusts JobScheduler;
-it does not request usage. An OS-scheduled interval is not an exact deadline.
+NEW PREVIEW COVERAGE
+The 1914 pure checks exercise:
+- selected dp-to-pixel mapping across ten densities, fractional and integer sizes;
+- viewport height changes without changing the selected image size;
+- reserved editing space, tiny/invalid bounds, and clamped pan offsets;
+- reported size lists, legacy portrait/landscape options and preferred orientation;
+- fractional dp, separate widget IDs and stable selection identity;
+- invalid/duplicate sizes, the four-variant bound and available legacy fallback;
+- missing host information versus explicitly estimated 1x1 / 2x1 choices.
+These checks do not instantiate Android Views or prove physical One UI dimensions.
 
-Retained 0.6.0 floating-widget checks:
-The preference tests compare every appearance field across roundtrips, all legacy
-format/size/alignment combinations, malformed/oversized/wrong-type storage, default
-values, size read/save bounds, and independent returned style objects. Floating
-style saves/resets do not overwrite home appearance, credentials, usage, position,
-or the floating session's other settings. The old home migration is preserved.
+0.6.2 IMPLEMENTATION SCOPE
+MainActivity offers Customize home widget and Customize floating widget as adjacent
+peer buttons, each opening its style mode directly. Show / hide floating widget
+remains separate. Customization does not require overlay permission or open an
+overlay session. The pinned preview maps selected dp to device density instead of
+shrinking the widget to a small box. Only the viewport height adapts to screen /
+keyboard space; oversized content pans inside it.
 
-Pure geometry covers portrait/landscape bounds, density-scaled requested sizes,
-oversized/invalid dimensions, saved fractions and drag limits. Pure gesture checks
-cover tap, movement slop, drag-return, cancellation, duplicate release, and the
-600ms long-press state. These do not verify real touch delivery or timing.
-Service source assertions inspect overlay type/flags, permission and revocation
-checks, specialUse foreground lifetime, screen-lock hiding, local cache reads,
-separate style/feedback, explicit settings/close intents, and observer cleanup.
-They also distinguish an active session from visible attachment so lock-screen
-hiding does not cancel/restart the automatic-refresh interval.
+Home choices read this app's widget sizes reported by the launcher, or explicitly
+show estimates. Launcher cells, wallpaper and outer margins are not reproduced.
+Floating preview means selected dimensions; the actual window can be clamped by
+available screen space. Synthetic preview data does not trigger a usage request.
+Home/floating settings, authentication, tokens, permissions and scheduling are unchanged.
 
-The real manual-refresh service is exercised with Android/Repo/overlay doubles for
-the 900ms same-widget triple-tap path, immediate first-tap refresh, suppression of
-extra fetches, independent widget IDs, quiet-window reset, and existing completion
-ownership. Floating taps remain refresh-only and do not enter the home gesture.
-Periodic/feedback checks include floating-only eligibility, session close behavior,
-and independent home/floating indicator duration. Publication checks inspect the
-per-widget immutable tap intent and floating repaint request in fake-host paths.
+ANDROID RUNTIME / VISUAL COVERAGE
+PASS: 91 Android 15/API35 emulator instrumentation checks on the final 0.6.2 APK.
+Runner exit code 0; recorded result RUNTIME_SMOKE_PASS checks=91.
+Environment: isolated Pixel 8 profile emulator with Wi-Fi/mobile data disabled.
+Synthetic cached usage only; no account, credentials or live usage API were used.
+The 91 checks include rerun opacity, interval and floating checks, not an extra
+addition of prior-version runtime counts. They are separate from 15020 host checks.
 
-Style Activity source review confirms separate mode/title/stores, 48..360dp width,
-48..300dp height, default 128x96dp, a pinned aspect-ratio-preserving preview, a resize
-shortcut, and all existing appearance controls. Source/model checks do not run real
-Android layout, accessibility, keyboard, color-wheel or overlay compositing.
+New runtime checks verify actual Android Views and navigation:
+- performClick on each main customization button opens its own settings mode;
+- selected 160x120, 300x240 and 360x300dp dimensions map to measured View pixels;
+- scrolling the settings list keeps the preview at its pinned position;
+- a 220x340dp app window limits the viewport without shrinking the selected image;
+- continuous synthetic MotionEvents pan the oversized preview, obey pan bounds
+  and do not accidentally trigger the preview's tap feedback while dragging.
 
-SEPARATE PASS: 62 Android 15/API35 emulator instrumentation runtime checks.
-Environment: isolated Pixel 8 profile emulator; final release APK 0.6.1 installed.
-Wi-Fi and mobile data disabled. No account, credentials or live usage API used.
-The recorded instrumentation result was RUNTIME_SMOKE_PASS checks=62; runner exit 0.
-The 62 checks include the earlier floating coverage, rerun on 0.6.1, and do not add
-the old 0.6.0 count of 31 again. They are separate from the 13106 host checks.
-New runtime checks verify:
-- real Bitmap renders at overall opacity 100/50/0 retain dimensions and identify
-  distinct background, text, and success-feedback pixel regions;
-- full-opacity opaque composition remains opaque; 50% alpha errors are 0 in all
-  three regions, RGB premultiplication rounding error is at most 1, and every
-  zero-opacity pixel is fully transparent;
-- live floating rendering changes 100->50->0->100 without reopening or querying,
-  preserves the home style at 73%, and keeps the zero-opacity session closable;
-- Android preferences retain 47/10080 minutes; 14 and wrong-type values fall back;
-- the actual MainActivity dialog saves typed 47 and closes, rejects typed 14 with
-  a visible input error while staying attached, and preserves saved 47 on cancel;
-- the 30-minute shortcut changes input but does not persist before Save;
-- interval settings neither query usage nor connect an account.
+Retained checks verify real Bitmap opacity at 100/50/0 for background, text and
+success feedback; live floating style updates independent of home style; actual
+interval dialog save/reject/cancel/presets; settings creation and WindowManager
+attachment; synthetic saved-cache repaint; movement, long-press close, reopening,
+signed-out manual-tap failure, and screen receiver detach/reattach behavior.
 
-Retained runtime checks verify:
-- test-granted overlay permission and target version;
-- actual floating settings Activity creation, Bitmap-backed preview, configured
-  independent dimensions/styles, and no refresh on opening settings;
-- actual WindowManager attachment and Bitmap rendering of synthetic cached 75%;
-- active foreground session, no usage fetch on show, immediate window size changes;
-- synthetic saved cache update to 60% repaints without a manual request;
-- screen-off receiver callback detaches the real window while retaining active
-  session state, and user-present callback reattaches it;
-- MotionEvent delivery to the actual View moves the window, includes final release
-  coordinates, persists the position and does not refresh during drag;
-- 600ms hold ends the session, destroys the service and removes the real window
-  without a refresh; the overlay can subsequently reopen;
-- short tap reaches the manual-refresh service, reports signed-out failure, does
-  not connect an account or close the overlay; explicit hide clears session state.
+Visual review: three offscreen PNGs were drawn from the target app's DecorView and
+inspected: main screen with peer customization buttons, 160x120dp floating preview,
+and maximum 360x300dp selected preview. No readability issue was identified in these
+three renders. These are app View renders, not OS screenshots or One UI captures.
 
-Important runtime limits: overlay permission was pre-granted using test appops, not
-the user's permission UI. Screen off/user present used direct receiver.onReceive
-calls, not a physical or emulated lock/unlock action. View MotionEvents are synthetic,
-not finger/launcher touch delivery. No screenshot visual QA, actual pinned-preview
-position while scrolling, real permission revocation, notification drawer or complete
-home-launcher triple-tap path was tested. Emulator checks do not establish Samsung
-One UI behavior, real credentials, live query success or power-saving reliability.
-Opacity changes were saved programmatically; the opacity slider itself was not
-manipulated. The pixel fixture did not include the optional ChatGPT logo. Interval
-tests verify input and stored scheduling values, not waiting 47 minutes for a real
-automatic network query. None of these tests is screenshot-based visual QA.
+Harness correction: the initial preview-drag attempt used a single MOVE event and
+failed to exercise the drag. The test was corrected to send continuous MOVE events;
+the final 91-check run passed without changing the production APK.
 
-Retained 0.5.2 battery/background guidance and diagnostics:
-BackgroundAccess tests exercise API26/27/28/33/34/35/36, power saver and exemption
-combinations, API-gated background restriction/pending-job reads, absent jobs/services,
-known and future reasons, and independent permission/runtime/linkage failures.
-Unavailable status is not labeled unrestricted or unscheduled. An executing reason
-and an unavailable read can share a raw number; their display hints remain distinct.
-Checks also cover a job disappearing between reads and fresh values on later reads.
-Only this package and its periodic job are inspected. The settings intent opens the
-generic optimization list, not a direct exemption request.
+Runtime limits: overlay permission was pre-granted with test appops, screen-off /
+user-present checks directly called the receiver, and touch events were synthetic.
+No actual permission UI, OS lock/unlock, keyboard/IME, physical finger input,
+installed home-widget size measurement, home-launcher triple-tap end-to-end,
+notification drawer or real 47-minute network job was verified. The opacity slider
+was not manipulated directly, and the alpha-pixel fixture omitted the optional logo.
 
-Added lifecycle/diagnostic checks cover first-use empty records, separate preferences,
-current-generation ownership, fixed outcome labels, no secret-shaped arbitrary text,
-cache-only publication retries, unsupported/failed platform stop-reason reads, and
-storage failure. Old completion/stop/publication callbacks cannot replace newer
-diagnostics. Actual query success and publication failure remain distinct; a recorded
-OS stop can coexist with a late, known successful query/publication. Diagnostic read
-failure is unavailable, not evidence that no job ever ran. Storage failures cannot
-block account work, widget publication or normal job completion.
+RETAINED SECURITY AND BEHAVIOR LIMITS
+The app uses an unofficial browser authentication implementation and internal usage
+endpoint. Tokens are not restricted to read-only usage. Passing a build, signature,
+local test or emulator test is not proof that connecting an account is safe.
+No passwords, account tokens, authorization callback data, signing keys or raw
+private-path build logs belong in the distribution.
 
-Status records start in 0.5.2 and are best-effort local metadata, not an immutable
-event log. Tokens, callback codes, server bodies and raw exception logs are not
-diagnostic fields. A missing completion does not prove a job is still running.
-Widget delivery means an update reached the Android host interface, not visual
-confirmation of the home screen.
+Automatic refresh uses one JobScheduler interval shared by home and active floating
+sessions, 15..10080 minutes with 15/30/60 shortcuts. Saving an interval does not
+fetch usage. Scheduled work is not an exact deadline. Device-wide power saving,
+background-data restrictions, force-stop and process death can delay or prevent it.
+Local diagnostics do not prove the user's S25 Ultra issue is fixed.
 
-MainActivity source review and resource checks confirm the status dialog / Check again
-read status without a usage query or resetting a job interval. Settings are chosen by
-the user in Android. No Samsung sleeping-list inspection or automatic policy change,
-new alarm or extra usage fetch is added by these diagnostics. The separate optional
-0.6.0 overlay adds display/specialUse permissions and a session foreground service;
-these are not part of the battery-status feature. Existing short browser-login and
-manual-refresh foreground services remain.
+The seven manifest permissions remain INTERNET, ACCESS_NETWORK_STATE,
+RECEIVE_BOOT_COMPLETED, FOREGROUND_SERVICE, FOREGROUND_SERVICE_DATA_SYNC,
+SYSTEM_ALERT_WINDOW and FOREGROUND_SERVICE_SPECIAL_USE. Optional floating display
+requires user permission and keeps its own foreground service. No exact alarm,
+accessibility service, notification access or separate polling is added.
+A floating window shows only saved app usage and does not inspect other apps.
+It hides for screen-off/lock, does not automatically return after process death
+or reboot, and can be closed by long press, app control or service notification.
 
-This is settings guidance and observability, not a verified fundamental fix for
-automatic refresh during Samsung power saving. An app optimization exception is not
-proof that device-wide background-data restrictions or job quotas are lifted.
-The user's specific cause and behavior with each phone setting remain unverified.
+Manual refresh uses a bounded foreground helper, cooperative cancellation and
+serialized token rotation. A 55-second watchdog / 70-second service cap is not a
+strict end-to-end HTTPS response deadline. Success feedback requires new valid
+saved data; a tap/error does not rewrite the last successful timestamp.
+Home/floating feedback durations are independent. Publication means delivery to
+Android, not proof that a physical launcher painted new pixels.
 
+NOT VERIFIED ON A PHYSICAL PHONE
+- APK installation/launch on S25 Ultra, One UI home-grid allocation or exact
+  rendered dimensions, actual finger touch, keyboard/layout in every configuration;
+- live OpenAI login/token issuance/refresh/revocation and Android Keystore/AtomicFile
+  credential storage; live usage comparison against the official usage screen;
+- actual permission grant/revocation UI, notification-drawer behavior, real lock /
+  unlock, rotation, full home-launcher triple-tap path and foreground policy;
+- reboot/Doze/long-term login, Samsung battery/sleep lists and automatic refresh
+  under the user's power-saving configuration or physical host/process races;
+- launcher icon masks/label caching/language changes;
+- full Linux build or byte-for-byte reproducibility.
 
-Retained 0.5.1 automatic-refresh regressions, rerun with deterministic Android/Repo doubles:
-1. A false cached connection flag rejected a periodic job before a valid saved
-   credential session could be reconciled after a cold background start.
-2. A job stop after saving fresh usage but before its main-thread completion
-   callback could suppress widget publication until another repaint occurred.
-These reproduce source-level failure paths; they do not establish which condition
-caused the user's actual Galaxy S25 Ultra symptom.
-
-The periodic worker now reconciles credentials on Repo.IO, rechecks automatic-refresh
-and home-widget/active-floating eligibility, and publishes committed cache before jobFinished.
-Tests hold the queue, reconciliation and save/completion boundaries to verify
-stop/destroy/replacement behavior, cancelled queued work, signed-out or unreadable
-sessions, auto-off/widgets-removed races, completion ownership and executor rejection.
-No Activity, real account or real usage HTTP request exists in the lifecycle harness.
-A publication failure permits one cache-only retry; late retries read current data
-and cannot finish a newer job. No extra usage fetch is introduced for repaint retry.
-
-Production widget publication is tested for current percentage/receipt timestamp
-across all fake host size variants, full RemoteViews data, accessible descriptions,
-hidden preview placeholders, immutable direct foreground-service tap actions, resize
-and legacy size handling, and the four-variant memory bound. Failure injection checks
-that one widget/host failure does not block later IDs, including repeated exception
-instances. Coordinated overlapping renders cannot restore an older published reading.
-A cold language/widget lock-order scenario completes without deadlock.
-These 339 checks use captured fake payloads, not real Android RemoteViews/Canvas.
-
-Automatic refresh remains JobScheduler-based, now at a custom 15..10080-minute
-interval with 15/30/60 shortcuts. Saving an interval does not fetch usage. The
-manifest now declares seven permissions: the existing INTERNET,
-ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED, FOREGROUND_SERVICE,
-FOREGROUND_SERVICE_DATA_SYNC plus optional-overlay SYSTEM_ALERT_WINDOW and
-FOREGROUND_SERVICE_SPECIAL_USE. There is no exact alarm or extra HTTP request solely
-to repaint. The optional floating session maintains its own foreground service and
-notification until closed; home-only display adds no persistent service. OS
-constraints can delay jobs; force-stop, process death
-or launcher rejection can still prevent immediate publication. The app cannot
-guarantee an exact interval or immediate home-screen repaint on Samsung One UI.
-
-Language tests cover API26/API33, primary Korean vs every other language, secondary
-Korean on a non-Korean phone, manual override, cold process recreation, configuration
-contexts, changes through Android Settings and system locale broadcasts. The locale
-broadcast repaints saved data without Repo operations, scheduling or async work.
-Language preferences are separate from account and widget preferences.
-On Android13+, automatic mode pins the resolved ko/en locale to enforce the user's
-strict primary-language rule. Android Settings can therefore show the resolved
-language even while the app's language picker says System default.
-Explicit values-en prevents a merged secondary Korean locale matching Korean assets.
-
-Browser response tests cover ko/en/unsupported/null locales, success/failure/timeouts,
-UTF-8 content length, independently checked CSP script hash/security headers and no
-callback-code/token/provider-error reflection. PKCE/state/request validation unchanged.
-Date tests cover independently hidden parts, time-only rows, month/weekday/AM-PM
-translation, persisted styles and existing layout normalization.
-UI review: concise polite Korean; 2x2 descriptive category cards, one named element
-picker, fixed preview, actual-warning-only message area, no repeated developer prose.
-These source and model tests do not execute real Android views or accessibility.
-
-Adaptive icon: 108dp foreground/background, mint three-bar mark inside the 66dp safe
-circle, API33 monochrome layer. The launcher selects the actual mask/corner shape.
-The separate existing notification small icon is unchanged.
-In-app titles follow the app language. Launcher label refresh is controlled by the
-launcher/package manager and may follow system language or cached labels; manual app
-language is not a guarantee of an immediate launcher-name change.
-
-Existing guarantees retained: manual widget taps use an explicit foreground-service
-PendingIntent; automatic work remains periodic-only; app entry/style/language changes
-do not fetch usage. Success feedback requires fresh valid saved data, defaults to 1s,
-and supports 0.1–10s. OS process death can retain an image until the next redraw.
-55-second request watchdog and 70-second service cap are not strict HTTP total limits.
-Windows packaging keeps forward-slash asset names. Original four font OFLs unchanged.
-No authentication endpoint, credential format, signing-key or permission change in
-0.6.1. The two overlay permissions added in 0.6.0 remain; overlay permission is user-controlled.
-No passwords, account tokens, signing keys or raw private-path build logs distributed.
-
-NOT TESTED: physical-phone APK installation/launch; actual Chrome/Samsung Internet authorization;
-real OpenAI tokens/refresh/revocation; Android Keystore/AtomicFile runtime;
-visual Canvas/layout/keyboard correctness and pinned-preview position while scrolling;
-permission grant UI, real z-order/finger-touch interactions, rotation, physical
-lock/unlock return, permission revocation, home-launcher triple-tap end-to-end,
-real notification-drawer visibility, full OS foreground-service policy/lifecycle;
-Galaxy S25 Ultra/One UI 1x1 allocation,
-launcher icon masks/label caching/language changes, reboot/Doze/long-term login retention;
-the user's actual automatic-update failure and corrected long-running automatic
-publication on S25 Ultra/One UI, real host update failures or device process races;
-actual Android battery-settings navigation, Samsung sleeping/deep-sleep/never-sleep
-lists, real pending-job reasons and behavior under each power-saving configuration;
-live usage vs official screen; Linux full build or byte-for-byte reproducibility.
-The earlier adb inventory had no physical Android device. The isolated API35
-emulator runtime result above does not substitute for Galaxy S25 Ultra/One UI tests.
-No physical-device result is claimed. Automatic refresh cannot prevent revocation or ensure
-permanent login. Test/build success is not a guarantee that account connection is safe;
-the unofficial authentication tokens are not restricted to read-only usage access.
+No physical S25 Ultra/One UI result is claimed. Emulator results are separate from
+host logic tests and physical-device evidence. Automatic refresh cannot prevent
+server revocation or guarantee permanent login.
