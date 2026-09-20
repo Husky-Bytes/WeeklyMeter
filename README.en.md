@@ -6,7 +6,7 @@ A small Android widget that runs on your phone—no PC or external relay server 
 
 [한국어](README.md) · [English](README.en.md)
 
-**[Download Android APK · 0.6.2](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.6.2/WeeklyMeter-0.6.2.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.6.2) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
+**[Download Android APK · 0.6.3](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.6.3/WeeklyMeter-0.6.3.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.6.3) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
 
 ![Illustrative concept showing compact WeeklyMeter widgets and customization possibilities](docs/images/weeklymeter-overview.png)
 
@@ -60,6 +60,8 @@ The default is **128×96dp**; width is **48–360dp** and height **48–300dp**.
 The app does not read other apps' contents; it displays its own saved usage. The overlay hides while the screen is off or locked and returns after unlocking if the session is still running. Temporary hiding does not restart the automatic-refresh interval. It does not reopen automatically after reboot or process death. Closing the floating session cancels automatic scheduling if no home widgets remain.
 
 A foreground service and notification are maintained while the floating session runs. On Android 13+, no separate notification permission is requested, so the notification may be absent from the drawer while the system's active-app list still shows the service. Phone policy may restrict display or execution. **Actual overlay rendering, touch, and lock-screen return on S25 Ultra remain unverified.**
+
+Since 0.6.3, the floating window itself no longer requests capture protection. **Its usage numbers and dates may appear in screenshots or screen recordings.** Check before sharing or close the widget first. The app's **main/account screen remains capture-protected**, so capture may still be restricted over that screen. This does not disable another app's or device's capture protection.
 
 ## When automatic refresh is delayed in power saving
 
@@ -144,16 +146,16 @@ The launcher masks the adaptive foreground/background into the phone's circle, r
 
 ## Version and verification
 
-0.6.2 displays previews at their selected dimensions and places **Customize home widget / Customize floating widget** at the same level on the main screen. Existing opacity, refresh intervals, floating behavior, login, battery diagnostics, and permissions remain. [Full changelog · Korean / English](CHANGELOG-0.6.2.md)
+0.6.3 removes `FLAG_SECURE` from the floating window only. The previous flag could cause screen capture restrictions while the overlay was visible. Protection for the main/account screen, lock-screen hiding, movement, refresh, customization, authentication, and permissions remain unchanged. [Full changelog · Korean / English](CHANGELOG-0.6.3.md) · [Android capture protection reference](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE)
 
-The **0.6.2 APK passed its Windows Android build, alignment/signature verification, and 15,020 host executable checks**, plus 49 separate static icon checks and checks across 18 XML files/resources. All previous suites were rerun, with 1,914 new preview checks. [Detailed results](TEST-RESULTS.txt). Local logic, Android test doubles, and source contracts do not establish real-device behavior, live-account success, or a fix for automatic refresh during power saving.
+The **0.6.3 APK passed its Windows Android build, alignment, same-certificate signing verification, and 15,026 host executable checks**, plus 49 separate static icon checks and checks across 18 XML files/resources. Separately, **99 Android 15 (API 35) emulator runtime checks** verified capture protection removed from the actual floating window, other window settings and main-screen protection preserved, and retained behavior. Successful OS screenshots or screen recording have not been verified. [Detailed results](TEST-RESULTS.txt)
 
-Separately, **91 Android 15 (API 35) emulator runtime checks passed on this APK**: direct navigation through both main buttons, actual View dimensions at 160×120 / 300×240 / 360×300dp, a pinned preview while settings scroll, and panning without shrinking in a small app window. Existing opacity, interval, and floating regressions are included. Synthetic data and disabled networking were used. Three PNGs drawn directly from app Views were visually reviewed, not captured from the OS screen. Physical S25 Ultra / One UI, actual keyboard/finger input, installed home-widget dimensions, and power-saving behavior remain unverified.
+Physical S25 Ultra / One UI screenshots and screen recording, actual keyboard/finger input, installed home-widget dimensions, and power-saving behavior remain unverified. Host/emulator checks do not establish live-account safety or resolution on a physical device.
 
 <details>
 <summary>Build from source / verify the download</summary>
 
-Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 12.
+Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 13.
 
 ```powershell
 .\build-apk.ps1 -Project . -BuildDirectory ..\build-current -SigningDirectory ..\private-signing -Sdk D:\Android\Sdk -Jdk 'C:\Program Files\Android\Android Studio\jbr'
@@ -163,10 +165,10 @@ Replace SDK/JDK paths with your local installation paths and use a fresh `BuildD
 
 On Linux, set `ANDROID_HOME` and run `bash build-apk.sh`. A full Linux build and byte-for-byte reproducibility have not been verified. Raw build logs containing personal local paths are excluded from the public distribution.
 
-SHA-256 of the published `WeeklyMeter-0.6.2.apk`:
+SHA-256 of the published `WeeklyMeter-0.6.3.apk`:
 
 ```text
-fcfa6cab1ac7384b24158873044571f4e423b6e1f390e5cb0eed8850cdfa6bb6
+e73c1eb8a79515037a9a015d4ac8d9f8cc5012a81c4d602e59be595594baf55e
 ```
 
 A matching hash verifies file identity, not the safety of the app.

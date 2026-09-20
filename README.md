@@ -6,7 +6,7 @@ PC나 외부 중계 서버 없이 폰에서 동작하는 Android 위젯입니다
 
 [한국어](README.md) · [English](README.en.md)
 
-**[Android APK 다운로드 · 0.6.2](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.6.2/WeeklyMeter-0.6.2.apk)** · [변경 내용 / 릴리스](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.6.2) · [문제 제보 / 제안](https://github.com/Husky-Bytes/WeeklyMeter/issues)
+**[Android APK 다운로드 · 0.6.3](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.6.3/WeeklyMeter-0.6.3.apk)** · [변경 내용 / 릴리스](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.6.3) · [문제 제보 / 제안](https://github.com/Husky-Bytes/WeeklyMeter/issues)
 
 ![WeeklyMeter의 작은 위젯과 꾸미기 방향을 보여주는 예시 이미지](docs/images/weeklymeter-overview.png)
 
@@ -60,6 +60,8 @@ Android 8.0 이상을 대상으로 합니다. Galaxy S25 Ultra를 염두에 두�
 다른 앱의 내용은 읽지 않으며, 앱에 저장된 사용량만 표시합니다. 화면이 꺼지거나 잠기면 숨기고 실행이 유지된 상태에서 잠금을 해제하면 다시 표시합니다. 이 일시 숨김은 자동 조회 주기를 초기화하지 않습니다. 재부팅·프로세스 종료 후에는 자동으로 띄우지 않습니다. 플로팅을 닫았을 때 홈 위젯도 없으면 자동 조회 예약을 취소합니다.
 
 플로팅 실행 중에는 foreground service와 알림을 유지합니다. Android 13 이상에서는 별도 알림 권한을 요청하지 않아 알림창에 보이지 않을 수 있고, 시스템의 실행 중 앱 목록에서 확인할 수 있습니다. 폰 정책에 따라 표시나 실행이 제한될 수 있으며 **S25 Ultra에서 실제 겹침 표시·터치·잠금 복귀는 미검증**입니다.
+
+0.6.3부터 플로팅 창 자체의 캡처 제한을 제거했습니다. **플로팅 위젯의 수치·날짜는 스크린샷이나 화면 녹화에 포함될 수 있습니다.** 공유 전 확인하거나 위젯을 닫아 주세요. 앱의 **메인·계정 연결 화면은 계속 캡처 보호**되므로 그 화면 위에서는 캡처가 제한될 수 있습니다. 다른 앱이나 기기의 캡처 보호를 해제하는 기능은 아닙니다.
 
 ## 절전 모드에서 자동 조회가 늦을 때
 
@@ -144,16 +146,16 @@ Android 13 이상은 앱별 언어 기능과 연동합니다. 시스템 설정 �
 
 ## 이번 버전과 검사 결과
 
-0.6.2는 미리보기를 선택한 크기 그대로 표시하고, **홈 위젯 꾸미기 / 플로팅 위젯 꾸미기**를 메인 화면의 같은 단계로 배치합니다. 기존 전체 불투명도·조회 간격·플로팅·로그인·절전 진단과 권한은 유지합니다. [전체 변경 안내 · 한국어 / English](CHANGELOG-0.6.2.md)
+0.6.3은 플로팅 창의 `FLAG_SECURE`만 제거합니다. 이전 설정은 플로팅 표시 중 화면 캡처가 제한되는 원인이 될 수 있었습니다. 메인·계정 연결 화면의 보호, 잠금 시 숨김, 이동·새로고침·꾸미기·로그인·권한은 유지합니다. [전체 변경 안내 · 한국어 / English](CHANGELOG-0.6.3.md) · [Android 캡처 보호 안내](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE)
 
-이번 **0.6.2 APK의 Windows Android 빌드·정렬·서명과 로컬 실행 검사 15,020개**, 별도 아이콘 정적 검사 49개와 XML 18개·리소스 검사를 통과했습니다. 기존 검사 전체를 다시 실행했고 미리보기 검사 1,914개를 추가했습니다. [상세 검사 기록](TEST-RESULTS.txt). 로컬 로직·대체 Android 환경·소스 계약 검사는 실기기 표시·실계정 성공이나 절전 중 자동 조회 문제의 해결을 보장하지 않습니다.
+이번 **0.6.3 APK의 Windows Android 빌드·정렬·동일 서명과 로컬 실행 검사 15,026개**를 통과했습니다. 아이콘 정적 검사 49개와 XML 18개·리소스 검사도 별도로 통과했습니다. 별도 **Android 15(API 35) 에뮬레이터 실행 검사 99개**에서 실제 플로팅 창의 캡처 보호 제거, 다른 창 설정과 메인 화면 보호 유지 및 기존 동작을 확인했습니다. 실제 OS 스크린샷·화면 녹화 성공은 검증하지 않았습니다. [상세 검사 기록](TEST-RESULTS.txt)
 
-별도로 이번 APK의 **Android 15(API 35) 에뮬레이터 실행 검사 91개**를 통과했습니다. 메인의 두 꾸미기 버튼 진입, 160×120 / 300×240 / 360×300dp의 실제 View 크기, 설정 스크롤 중 미리보기 고정, 작은 앱 창에서 축소 없는 이동을 확인했습니다. 기존 불투명도·간격·플로팅 검사도 포함합니다. 네트워크 없이 가상 데이터를 사용했습니다. 앱 View를 직접 그린 PNG 3장도 검토했지만 실제 OS 화면 캡처는 아닙니다. 실기기 S25 Ultra / One UI, 실제 키보드·손가락 입력·설치된 홈 위젯 크기·절전 동작은 미검증입니다.
+실기기 S25 Ultra / One UI의 캡처·화면 녹화, 실제 키보드·손가락 입력·설치된 홈 위젯 크기·절전 동작은 미검증입니다. 로컬·에뮬레이터 검사는 실계정의 안전이나 실기기 문제 해결을 보장하지 않습니다.
 
 <details>
 <summary>직접 빌드 / APK 무결성 확인</summary>
 
-Windows 빌드 환경: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. 앱은 minSdk 26 / targetSdk 35, 패키지 `dev.yerin.weeklymeter`, versionCode 12입니다.
+Windows 빌드 환경: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. 앱은 minSdk 26 / targetSdk 35, 패키지 `dev.yerin.weeklymeter`, versionCode 13입니다.
 
 ```powershell
 .\build-apk.ps1 -Project . -BuildDirectory ..\build-current -SigningDirectory ..\private-signing -Sdk D:\Android\Sdk -Jdk 'C:\Program Files\Android\Android Studio\jbr'
@@ -163,10 +165,10 @@ Windows 빌드 환경: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Pyth
 
 Linux에서는 `ANDROID_HOME`을 지정한 뒤 `bash build-apk.sh`를 실행합니다. Linux 전체 빌드와 바이트 단위 재현 가능성은 별도 미검증입니다. 개인 로컬 경로가 포함된 원본 빌드 로그는 공개 배포에서 제외했습니다.
 
-배포 APK `WeeklyMeter-0.6.2.apk`의 SHA-256:
+배포 APK `WeeklyMeter-0.6.3.apk`의 SHA-256:
 
 ```text
-fcfa6cab1ac7384b24158873044571f4e423b6e1f390e5cb0eed8850cdfa6bb6
+e73c1eb8a79515037a9a015d4ac8d9f8cc5012a81c4d602e59be595594baf55e
 ```
 
 해시 일치는 다운로드 파일의 동일성을 확인하는 수단이지 앱의 안전 보증이 아닙니다.

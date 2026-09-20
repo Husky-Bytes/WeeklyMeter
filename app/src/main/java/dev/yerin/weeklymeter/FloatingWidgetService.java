@@ -153,8 +153,10 @@ public final class FloatingWidgetService extends Service {
             image.setImageBitmap(rendered.bitmap);
             image.setContentDescription(rendered.accessibility+". "+Texts.t(this,"누르면 조회, 끌어서 이동, 길게 누르면 닫기","Tap to refresh, drag to move, hold to close"));
             if(layout==null){
+                // Usage-only overlays must not block screenshots of the app underneath.
+                // The account-connection Activity retains its own secure-window policy.
                 layout=new WindowManager.LayoutParams(frame.width,frame.height,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN|WindowManager.LayoutParams.FLAG_SECURE,PixelFormat.TRANSLUCENT);
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT);
                 layout.gravity=Gravity.TOP|Gravity.LEFT;
                 if(Build.VERSION.SDK_INT>=28)layout.layoutInDisplayCutoutMode=WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             }

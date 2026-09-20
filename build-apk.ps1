@@ -56,7 +56,7 @@ try {
     Run-Native "$toolsPath\aapt2.exe" @('compile','--dir',"$projectPath\app\src\main\res",'-o',"$buildPath\resources.zip")
     # Windows aapt2 -A can emit backslashes in nested asset ZIP entry names.
     # Insert assets ourselves below using canonical Android '/' paths, before signing.
-    Run-Native "$toolsPath\aapt2.exe" @('link','-I',$androidJar,'--manifest',"$projectPath\app\src\main\AndroidManifest.xml",'--java',"$buildPath\gen",'--min-sdk-version','26','--target-sdk-version','35','--version-code','12','--version-name','0.6.2','-o',"$buildPath\base.apk","$buildPath\resources.zip")
+    Run-Native "$toolsPath\aapt2.exe" @('link','-I',$androidJar,'--manifest',"$projectPath\app\src\main\AndroidManifest.xml",'--java',"$buildPath\gen",'--min-sdk-version','26','--target-sdk-version','35','--version-code','13','--version-name','0.6.3','-o',"$buildPath\base.apk","$buildPath\resources.zip")
     $sources = @(Get-ChildItem -LiteralPath "$projectPath\app\src\main\java","$buildPath\gen" -Recurse -Filter '*.java' | ForEach-Object FullName)
     Run-Native "$Jdk\bin\javac.exe" (@('-source','8','-target','8','-encoding','UTF-8','-bootclasspath',"$toolsPath\core-lambda-stubs.jar;$androidJar",'-d',"$buildPath\classes") + $sources)
     Run-Native "$Jdk\bin\jar.exe" @('cf',"$buildPath\classes.jar",'-C',"$buildPath\classes",'.')

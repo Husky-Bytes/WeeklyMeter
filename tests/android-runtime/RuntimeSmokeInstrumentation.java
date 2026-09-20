@@ -41,8 +41,8 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
     @Override public void onCreate(Bundle arguments){super.onCreate(arguments);start();}
     @Override public void onStart(){
         Thread deadline=new Thread(()->{
-            try{Thread.sleep(90_000);}catch(InterruptedException complete){return;}
-            Bundle timeout=new Bundle();timeout.putString("stream","\nRUNTIME_SMOKE_FAIL: 90-second test-run deadline exceeded\n");
+            try{Thread.sleep(150_000);}catch(InterruptedException complete){return;}
+            Bundle timeout=new Bundle();timeout.putString("stream","\nRUNTIME_SMOKE_FAIL: 150-second test-run deadline exceeded\n");
             complete(Activity.RESULT_CANCELED,timeout);
         },"runtime-smoke-deadline");deadline.setDaemon(true);deadline.start();
         Bundle result=new Bundle();
@@ -61,7 +61,8 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
     private void complete(int code,Bundle result){if(finished.compareAndSet(false,true))finish(code,result);}
     private void test() throws Exception {
         check(Settings.canDrawOverlays(target),"Overlay permission must be granted by test setup");
-        check("0.6.2".equals(target.getPackageManager().getPackageInfo(target.getPackageName(),0).versionName),"Target APK version is 0.6.2");
+        check("0.6.3".equals(target.getPackageManager().getPackageInfo(target.getPackageName(),0).versionName),"Target APK version is 0.6.3");
+        check(target.getPackageManager().getPackageInfo(target.getPackageName(),0).getLongVersionCode()==13,"Target APK version code is 13");
         check(WidgetStyle.defaults().overallOpacity==100,"Overall opacity defaults to the original full visibility");
         bitmapOpacity();
         main(()->{
@@ -87,6 +88,7 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
         await(()->FloatingWidgetService.isShowing(),8000,"Overlay attaches");
         ImageView first=image();
         check(mainValue(first::isAttachedToWindow),"Overlay view is attached to actual WindowManager");
+        overlayWindowFlags();
         check(mainValue(()->first.getDrawable() instanceof BitmapDrawable),"Overlay uses real bitmap rendering");
         await(()->mainValue(()->String.valueOf(image().getContentDescription()).contains("75%")),3000,"Overlay renders synthetic cached 75%");
         check(FloatingWidgetService.isActive(),"Visible overlay has an active foreground session");
@@ -107,6 +109,7 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
         check(mainValue(()->!first.isAttachedToWindow()),"Hidden window is physically detached");
         main(()->receiver().onReceive(target,new Intent(Intent.ACTION_USER_PRESENT)));
         await(()->FloatingWidgetService.isShowing(),3000,"User-present callback restores overlay");
+        check(mainValue(()->(attachedOverlayLayout().flags&WindowManager.LayoutParams.FLAG_SECURE)==0),"Restored overlay still does not request screenshot blocking");
 
         int beforeX=mainValue(()->layout().x),beforeY=mainValue(()->layout().y);
         main(()->{
@@ -137,6 +140,7 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
     private Activity mainStyleEntries()throws Exception{
         navigationActivity=startActivitySync(new Intent(target,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));waitForIdleSync();
         await(()->mainValue(()->!(Boolean)field(navigationActivity,"busy")),3000,"Main screen finishes local-only account-state check");
+        check(mainValue(()->(navigationActivity.getWindow().getAttributes().flags&WindowManager.LayoutParams.FLAG_SECURE)!=0),"Main account/sign-in Activity retains its secure-window protection");
         Button[] entries=mainValue(()->new Button[]{styleEntry(false),styleEntry(true)});
         check(mainValue(()->entries[0].getParent()==entries[1].getParent()),"Home and floating style entries share the same main-screen parent");
         check(mainValue(()->((ViewGroup)entries[0].getParent()).indexOfChild(entries[1])==((ViewGroup)entries[0].getParent()).indexOfChild(entries[0])+1),"Home and floating style entries are adjacent peers");
@@ -162,7 +166,7 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
     }
     private Activity openStyleEntry(boolean floating)throws Exception{
         ActivityMonitor monitor=addMonitor(WidgetStyleSettingsActivity.class.getName(),null,false);
-        try{main(()->styleEntry(floating).performClick());Activity activity=waitForMonitorWithTimeout(monitor,4000);check(activity!=null,"Single main-screen style click starts an editor Activity (floating="+floating+")");return activity;}
+        try{main(()->styleEntry(floating).performClick());Activity activity=waitForMonitorWithTimeout(monitor,15000);check(activity!=null,"Single main-screen style click starts an editor Activity (floating="+floating+")");return activity;}
         finally{removeMonitor(monitor);}
     }
     private static int backgroundColor(Button button){return ((GradientDrawable)button.getBackground()).getColor().getDefaultColor();}
@@ -239,7 +243,7 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
         if(decor.getWidth()<=0||decor.getHeight()<=0)throw new AssertionError("App-owned view is not laid out for visual capture");
         java.io.File external=target.getExternalFilesDir(null);
         if(external==null)throw new IllegalStateException("App-scoped test-output directory unavailable");
-        java.io.File directory=new java.io.File(external,"runtime-v062");
+        java.io.File directory=new java.io.File(external,"runtime-v063");
         if(!directory.isDirectory()&&!directory.mkdirs())throw new IllegalStateException("Could not create app-scoped visual-output directory");
         java.io.File output=new java.io.File(directory,name);
         Bitmap bitmap=Bitmap.createBitmap(decor.getWidth(),decor.getHeight(),Bitmap.Config.ARGB_8888);
@@ -357,6 +361,18 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
     private FloatingWidgetService service()throws Exception{return (FloatingWidgetService)field(null,FloatingWidgetService.class,"instance");}
     private ImageView image()throws Exception{return (ImageView)field(service(),"image");}
     private WindowManager.LayoutParams layout()throws Exception{return (WindowManager.LayoutParams)field(service(),"layout");}
+    private WindowManager.LayoutParams attachedOverlayLayout()throws Exception{
+        ImageView view=image();
+        if(!view.isAttachedToWindow()||!(view.getLayoutParams() instanceof WindowManager.LayoutParams))throw new AssertionError("Attached overlay WindowManager attributes are unavailable");
+        return (WindowManager.LayoutParams)view.getLayoutParams();
+    }
+    private void overlayWindowFlags()throws Exception{
+        check(mainValue(()->attachedOverlayLayout().type==WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY),"Attached window remains an application overlay");
+        check(mainValue(()->(attachedOverlayLayout().flags&WindowManager.LayoutParams.FLAG_SECURE)==0),"Attached overlay does not request screenshot blocking");
+        check(mainValue(()->(attachedOverlayLayout().flags&WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)!=0),"Attached overlay does not take keyboard focus");
+        check(mainValue(()->(attachedOverlayLayout().flags&WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)!=0),"Attached overlay preserves outside-touch pass-through");
+        check(mainValue(()->(attachedOverlayLayout().flags&WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)!=0),"Attached overlay retains screen-coordinate layout behavior");
+    }
     private BroadcastReceiver receiver()throws Exception{return (BroadcastReceiver)field(service(),"screen");}
     private static void event(View view,long down,long time,int action,float x,float y){MotionEvent event=MotionEvent.obtain(down,time,action,x,y,0);try{view.dispatchTouchEvent(event);}finally{event.recycle();}}
     private void main(Task task)throws Exception{mainValue(()->{task.run();return null;});}

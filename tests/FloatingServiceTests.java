@@ -40,6 +40,16 @@ public final class FloatingServiceTests {
         if(args.length>0){
             String source=new String(Files.readAllBytes(Paths.get(args[0])),StandardCharsets.UTF_8);
             check(source.contains("TYPE_APPLICATION_OVERLAY")&&source.contains("FLAG_NOT_FOCUSABLE")&&source.contains("FLAG_NOT_TOUCH_MODAL"),"bounded unfocused overlay");
+            int layoutStart=source.indexOf("layout=new WindowManager.LayoutParams(");
+            int layoutEnd=source.indexOf(");",layoutStart);
+            check(layoutStart>=0&&layoutEnd>layoutStart,"overlay window flag declaration is inspected");
+            String layout=source.substring(layoutStart,layoutEnd);
+            check(!layout.contains("FLAG_SECURE"),"floating display does not request secure-window screenshot blocking");
+            check(layout.contains("FLAG_NOT_FOCUSABLE")&&layout.contains("FLAG_NOT_TOUCH_MODAL")&&layout.contains("FLAG_LAYOUT_IN_SCREEN"),"screenshot change preserves overlay focus, outside-touch and placement flags");
+            check(!layout.contains("FLAG_NOT_TOUCHABLE"),"floating tap, drag and hold remain touchable");
+            String mainSource=new String(Files.readAllBytes(Paths.get(args[0]).resolveSibling("MainActivity.java")),StandardCharsets.UTF_8).replaceAll("\\s+","");
+            check(mainSource.contains("getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE)"),"main/account screen retains secure-window capture protection");
+            check(!mainSource.contains("clearFlags(WindowManager.LayoutParams.FLAG_SECURE)"),"floating screenshot change does not clear main-screen security");
             check(source.contains("Settings.canDrawOverlays")&&source.contains("OPSTR_SYSTEM_ALERT_WINDOW"),"permission check plus revocation observer");
             check(source.contains("FOREGROUND_SERVICE_TYPE_SPECIAL_USE")&&source.contains("START_NOT_STICKY")&&!source.contains("START_STICKY"),"user-controlled foreground lifetime");
             check(source.contains("Intent.ACTION_SCREEN_OFF")&&source.contains("isKeyguardLocked()")&&source.contains("!power.isInteractive()"),"privacy while screen locked or off");

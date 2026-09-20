@@ -1,22 +1,40 @@
-WeeklyMeter 0.6.2 — selected-size preview and direct customization entries, 2026-09-20
+WeeklyMeter 0.6.3 — floating-window screen-capture fix, 2026-09-21
 
-CURRENT RELEASE — build-v062 completed with exit code 0
+CURRENT RELEASE — build-v063 completed with exit code 0
 Package: dev.yerin.weeklymeter
-versionCode: 12; versionName: 0.6.2; minSdk26 / targetSdk35
-Distribution filename: WeeklyMeter-0.6.2.apk
-PASS: 15,020 host executable checks; every previous suite was rerun on this build.
+versionCode: 13; versionName: 0.6.3; minSdk26 / targetSdk35
+Distribution filename: WeeklyMeter-0.6.3.apk
+PASS: 15,026 host executable checks; every previous suite was rerun on this build.
 PASS: 49 separate static icon checks and 18 XML files/resource/manifest checks.
 PASS: Windows Android compilation, aapt2 packaging, DEX, alignment and signing.
 PASS: zipalign -c 4 and APK v2/v3 signature verification.
 APK size: 3643452 bytes
-APK SHA256: fcfa6cab1ac7384b24158873044571f4e423b6e1f390e5cb0eed8850cdfa6bb6
+APK SHA256: e73c1eb8a79515037a9a015d4ac8d9f8cc5012a81c4d602e59be595594baf55e
 Signing certificate SHA256: abfc4290289a8df7abffe951cf096fcd1fbe3972f0887d95390bab5a4d5816ab
 Preserved signing certificate supports an update over the existing installation.
 Build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0.
 Compiled locales: default English, explicit English, Korean.
 Application labels: WeeklyMeter / 주간 잔여량.
 
-HOST CHECKS — executed on 0.6.2
+0.6.3 IMPLEMENTATION SCOPE
+Remove FLAG_SECURE from FloatingWidgetService's overlay window only. Its prior
+capture protection could restrict screenshots while the overlay was visible.
+The widget's usage percentage and dates can now be included in screenshots or
+screen recordings. MainActivity's main/account screen keeps FLAG_SECURE; capture
+may still be restricted while that screen is underneath the floating widget.
+Other apps' protection and system/administrator capture policy are not bypassed.
+No authentication, permission, refresh, style, touch or lock-hide policy change.
+Android reference:
+https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE
+
+0.6.3 VERIFICATION STATUS
+PASS: all host regressions, including six added window-flag source-contract checks.
+The new checks failed before the fix and passed after it (1166 floating suite).
+PASS: 99 Android 15/API35 emulator runtime checks on the same final APK.
+Actual OS screenshots and screen recording: NOT VERIFIED.
+Physical S25 Ultra / One UI capture and screen recording: NOT VERIFIED.
+
+HOST CHECKS — executed on 0.6.3
 49 core parsing/network-boundary checks.
 71 usage/JSON/bucket scenarios, including 1001 percentage samples.
 1323 style/date/layout/bitmap-budget/internal-spacing/overall-alpha checks.
@@ -34,15 +52,15 @@ HOST CHECKS — executed on 0.6.2
 1006 read-only background-status checks with synthetic power/activity/job services.
 339 publication checks with production widget/store/style and fake host/renderer.
 5947 floating style/persistence checks with strict named preference doubles.
-1160 floating geometry/gesture and service source-contract checks.
+1166 floating geometry/gesture and service source-contract checks.
 1914 selected-size preview geometry/host-option checks, pure Java.
 36 APK asset checks, run before and after signing but counted once.
-TOTAL: 15020 host executable checks. The 1001 sampled percentages are included in
+TOTAL: 15026 host executable checks. The 1001 sampled percentages are included in
 the 71 scenarios, not added again. Static and emulator checks are separate.
 No physical device, real account or actual usage HTTP response is represented by
 this host total. Fake host payload checks are not real Canvas/launcher pixel tests.
 
-NEW PREVIEW COVERAGE
+RETAINED PREVIEW COVERAGE
 The 1914 pure checks exercise:
 - selected dp-to-pixel mapping across ten densities, fractional and integer sizes;
 - viewport height changes without changing the selected image size;
@@ -53,7 +71,7 @@ The 1914 pure checks exercise:
 - missing host information versus explicitly estimated 1x1 / 2x1 choices.
 These checks do not instantiate Android Views or prove physical One UI dimensions.
 
-0.6.2 IMPLEMENTATION SCOPE
+RETAINED 0.6.2 IMPLEMENTATION
 MainActivity offers Customize home widget and Customize floating widget as adjacent
 peer buttons, each opening its style mode directly. Show / hide floating widget
 remains separate. Customization does not require overlay permission or open an
@@ -67,15 +85,23 @@ Floating preview means selected dimensions; the actual window can be clamped by
 available screen space. Synthetic preview data does not trigger a usage request.
 Home/floating settings, authentication, tokens, permissions and scheduling are unchanged.
 
-ANDROID RUNTIME / VISUAL COVERAGE
-PASS: 91 Android 15/API35 emulator instrumentation checks on the final 0.6.2 APK.
-Runner exit code 0; recorded result RUNTIME_SMOKE_PASS checks=91.
+ANDROID RUNTIME COVERAGE — executed on 0.6.3
+PASS: 99 Android 15/API35 emulator instrumentation checks on the final 0.6.3 APK.
+Runner exit code 0; recorded result RUNTIME_SMOKE_PASS checks=99.
 Environment: isolated Pixel 8 profile emulator with Wi-Fi/mobile data disabled.
 Synthetic cached usage only; no account, credentials or live usage API were used.
-The 91 checks include rerun opacity, interval and floating checks, not an extra
-addition of prior-version runtime counts. They are separate from 15020 host checks.
+The 99 checks include all 91 previous checks rerun plus eight window-protection
+checks. Previous-version runtime counts are not added again. These are separate
+from the 15026 host checks.
 
-New runtime checks verify actual Android Views and navigation:
+New checks verify flags on actual attached windows, not screenshot output:
+- the floating window does not set FLAG_SECURE;
+- TYPE_APPLICATION_OVERLAY, FLAG_NOT_FOCUSABLE, FLAG_NOT_TOUCH_MODAL and
+  FLAG_LAYOUT_IN_SCREEN behavior flags remain;
+- restoring the overlay through the screen receiver still omits FLAG_SECURE;
+- MainActivity's main/account window keeps FLAG_SECURE.
+
+Retained runtime checks verify actual Android Views and navigation:
 - performClick on each main customization button opens its own settings mode;
 - selected 160x120, 300x240 and 360x300dp dimensions map to measured View pixels;
 - scrolling the settings list keeps the preview at its pinned position;
@@ -89,14 +115,17 @@ interval dialog save/reject/cancel/presets; settings creation and WindowManager
 attachment; synthetic saved-cache repaint; movement, long-press close, reopening,
 signed-out manual-tap failure, and screen receiver detach/reattach behavior.
 
-Visual review: three offscreen PNGs were drawn from the target app's DecorView and
-inspected: main screen with peer customization buttons, 160x120dp floating preview,
-and maximum 360x300dp selected preview. No readability issue was identified in these
-three renders. These are app View renders, not OS screenshots or One UI captures.
+Harness timing: the first 0.6.3 run passed 32 checks before the existing Activity
+navigation check timed out at four seconds. Logs showed host/emulator delay
+(Activity display 14.812 seconds; launcher 2 minutes 53 seconds), with no WeeklyMeter
+crash identified. Only test waiting limits changed: Activity start 4 to 15 seconds
+and whole-run watchdog 90 to 150 seconds. The same APK and same 99 assertions passed
+on the second run. Production code was not changed between attempts.
 
-Harness correction: the initial preview-drag attempt used a single MOVE event and
-failed to exercise the drag. The test was corrected to send continuous MOVE events;
-the final 91-check run passed without changing the production APK.
+No OS screenshots or screen recording were tested. The harness's synthetic
+DecorView PNG outputs are offscreen View.draw(Canvas) renders, not screen captures.
+No new visual review is claimed for 0.6.3; three such renders were inspected for
+0.6.2, which does not establish screenshot behavior for this release.
 
 Runtime limits: overlay permission was pre-granted with test appops, screen-off /
 user-present checks directly called the receiver, and touch events were synthetic.
