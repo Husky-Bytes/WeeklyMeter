@@ -10,10 +10,10 @@ final class Texts {
  static String t(Context c,String ko,String en){return "ko".equals(locale(c).getLanguage())?ko:en;}
 }
 final class Display {static String state(Context c,Usage u){return u==null?"empty":"latest";}}
-final class Scheduler {static int requests;static void ensure(Context c){}static void cancel(Context c){}static void request(Context c){requests++;}}
+final class Scheduler {static int requests,ensures;static boolean fail;static void ensure(Context c){ensures++;if(fail)throw new IllegalStateException("synthetic scheduler failure");}static void cancel(Context c){}static void request(Context c){requests++;}}
 final class WidgetRefreshService {static final String ACTION_REFRESH="refresh",ACTION_HOME_TAP="home_tap",EXTRA_APP_WIDGET_ID="appWidgetId";}
 final class FloatingWidgetService {static int repaints;static void repaint(Context c){repaints++;}}
-final class RefreshFeedback {static final class Snapshot {boolean visible;String state="none";}static Snapshot snapshot(Context c){return new Snapshot();}}
+final class RefreshFeedback {static boolean visible;static int individualPublications;static final class Snapshot {boolean visible;String state="none";}static Snapshot snapshot(Context c){Snapshot value=new Snapshot();value.visible=visible;value.state=visible?"success":"none";return value;}static void published(boolean floating,Snapshot snapshot){}static void homePublishedOne(Context c,Snapshot snapshot){individualPublications++;}}
 final class WidgetRenderer {
  static volatile Consumer<Usage> beforeRender=u->{};
  static final class Result {final Bitmap bitmap;final String accessibility;Result(Bitmap bitmap,String accessibility){this.bitmap=bitmap;this.accessibility=accessibility;}}

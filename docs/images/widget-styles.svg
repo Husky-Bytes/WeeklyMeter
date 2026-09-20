@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="260" viewBox="0 0 1000 260" role="img" aria-labelledby="title description">
+  <title id="title">Illustrated WeeklyMeter widget styles</title>
+  <desc id="description">Three flat dark, mint, and lilac widget examples display a sample remaining value of 73 percent, with optional reset or update time. These are illustrations, not screenshots.</desc>
+  <g font-family="sans-serif" text-anchor="middle">
+    <rect x="96" y="18" width="192" height="192" rx="24" fill="#182D25"/>
+    <text x="192" y="123" font-size="65" font-weight="700" letter-spacing="-3" fill="#F6FAF7">73%</text>
+    <text x="192" y="155" font-size="14" fill="#C4D9CD">Reset Sun, 18:00</text>
+
+    <rect x="320" y="18" width="192" height="192" rx="24" fill="#D9EFE2"/>
+    <text x="416" y="138" font-size="70" font-weight="700" letter-spacing="-3" fill="#1D4432">73%</text>
+
+    <rect x="544" y="42" width="360" height="144" rx="24" fill="#E9E1F6"/>
+    <text x="724" y="122" font-size="64" font-weight="700" letter-spacing="-3" fill="#3E2F57">73%</text>
+    <text x="724" y="155" font-size="15" fill="#655279">Updated 18:42</text>
+
+    <text x="500" y="244" font-size="13" fill="#687078">Illustrative styles · sample data</text>
+  </g>
+</svg>

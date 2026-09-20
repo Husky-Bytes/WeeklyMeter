@@ -20,21 +20,36 @@ public final class MainActivity extends Activity {
     private String localStatus="";
     private String createdLanguage;
     private BrowserLoginService.Status seenStatus;
+    private int seenFloatingState=-1;
+    private boolean seenReauthentication,seenConnected,seenMeters,observing;
+    private int seenInterval;
+    private boolean seenAuto;
+    private TextView heroPercent,heroReset,heroLast,localStatusView,storeErrorView;
+    private SharedPreferences observedPreferences;
     private final Handler ui=new Handler(Looper.getMainLooper());
+    private final java.util.concurrent.atomic.AtomicBoolean updateQueued=new java.util.concurrent.atomic.AtomicBoolean();
     private interface Action {void run()throws Exception;}
     @Override protected void attachBaseContext(Context base){super.attachBaseContext(AppLanguage.wrap(base));}
-    private final Runnable loginUpdates=new Runnable(){public void run(){
+    private final Runnable stateUpdates=()->{
+        updateQueued.set(false);if(!observing||isDestroyed())return;
         BrowserLoginService.Status s=BrowserLoginService.status();
-        if(s!=seenStatus){
-            seenStatus=s;render();
-            if(s.phase.equals("waiting")&&autoOpenLogin&&openedAttempt!=s.attempt){openedAttempt=s.attempt;autoOpenLogin=false;browser(s.url);}
-            if(s.phase.equals("done")&&!busy)MainActivity.this.run(()->new Repo(MainActivity.this).reconcileConnection());
-        }
-        ui.postDelayed(this,500);
-    }};
+        if(s!=seenStatus||seenFloatingState!=floatingState()||seenReauthentication!=Repo.reauthenticationRequired(this)
+            ||seenConnected!=Store.connected(this)||seenMeters!=!Store.meters(this).isEmpty()
+            ||seenAuto!=Store.prefs(this).getBoolean("auto",true)||seenInterval!=Scheduler.minutes(this))render();
+        else updateUsage();
+        if(s.phase.equals("waiting")&&autoOpenLogin&&openedAttempt!=s.attempt){openedAttempt=s.attempt;autoOpenLogin=false;browser(s.url);}
+    };
+    private final Runnable stateObserver=this::queueStateUpdate;
+    private final SharedPreferences.OnSharedPreferenceChangeListener preferenceObserver=(prefs,key)->{
+        if(key==null||key.equals("meters")||key.equals("selected")||key.equals("error")||key.equals("connected")
+            ||key.equals("reauth_required")||key.equals("auto")||key.equals("minutes"))queueStateUpdate();
+    };
+    private final BroadcastReceiver clockObserver=new BroadcastReceiver(){@Override public void onReceive(Context c,Intent intent){queueStateUpdate();}};
+    private final Runnable displayExpiry=()->{if(observing)updateUsage();};
+    private void queueStateUpdate(){if(updateQueued.compareAndSet(false,true))ui.post(stateUpdates);}
     @Override public void onCreate(Bundle state){
         super.onCreate(state);createdLanguage=Texts.locale(this).getLanguage();setTitle(R.string.app_name);if(state!=null){openedAttempt=state.getLong("openedAttempt",0);autoOpenLogin=state.getBoolean("autoOpenLogin",false);awaitingOverlayReturn=state.getBoolean("awaitingOverlayReturn",false);}
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        // This screen contains usage/settings only; credentials stay in the external browser/vault.
         getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(BG);
         content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(dp(24),dp(24),dp(24),dp(32));scroll.addView(content,new ScrollView.LayoutParams(-1,-2));
@@ -48,35 +63,53 @@ public final class MainActivity extends Activity {
         super.onResume();AppLanguage.synchronize(this);
         if(!Texts.locale(this).getLanguage().equals(createdLanguage)){recreate();return;}
         if(awaitingOverlayReturn){awaitingOverlayReturn=false;if(overlayAllowed())showFloating();else Toast.makeText(this,t("다른 앱 위에 표시 권한이 필요합니다.","Allow display over other apps to show the floating widget."),Toast.LENGTH_LONG).show();}
-        ui.post(loginUpdates);if(!busy)run(()->new Repo(this).reconcileConnection());
+        observing=true;observedPreferences=Store.prefs(this);observedPreferences.registerOnSharedPreferenceChangeListener(preferenceObserver);
+        AppSignals.register(stateObserver);
+        IntentFilter clockFilter=new IntentFilter();clockFilter.addAction(Intent.ACTION_TIME_CHANGED);clockFilter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
+        if(Build.VERSION.SDK_INT>=33)registerReceiver(clockObserver,clockFilter,Context.RECEIVER_NOT_EXPORTED);else registerReceiver(clockObserver,clockFilter);
+        queueStateUpdate();if(!busy)run(()->new Repo(this).reconcileConnection());
     }
-    @Override protected void onPause(){ui.removeCallbacks(loginUpdates);super.onPause();}
+    @Override protected void onPause(){
+        if(observing){observing=false;AppSignals.unregister(stateObserver);observedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceObserver);unregisterReceiver(clockObserver);}
+        ui.removeCallbacks(stateUpdates);updateQueued.set(false);ui.removeCallbacks(displayExpiry);super.onPause();
+    }
     private void run(Action action){
         if(busy)return;busy=true;localStatus="";render();
         Repo.IO.execute(()->{String err="";try{action.run();}catch(Exception e){err=Repo.friendly(e);}final String message=err;
-            ui.post(()->{if(isDestroyed())return;busy=false;localStatus=message;Scheduler.ensure(this);WeeklyWidget.renderAll(this);render();});});
+            ui.post(()->{if(isDestroyed())return;busy=false;localStatus=message;ensureSchedule();repaintWidgets();render();});});
     }
+    private int floatingState(){return FloatingWidgetService.isActive()?(FloatingWidgetService.isShowing()?2:1):0;}
+    private void ensureSchedule(){try{Scheduler.ensure(this);}catch(RuntimeException unavailable){if(localStatus.isEmpty())localStatus=t("자동 조회 예약을 갱신하지 못했습니다. 다시 시도해 주세요.","Could not update automatic refresh scheduling. Please try again.");}}
+    private void repaintWidgets(){try{WeeklyWidget.renderAll(this);}catch(RuntimeException unavailable){if(localStatus.isEmpty())localStatus=t("위젯 표시를 갱신하지 못했습니다. 다시 시도해 주세요.","Could not update the widget display. Please try again.");}}
     private void render(){
         if(content==null)return;content.removeAllViews();languageHeader();gap(content,20);
-        Usage u=Store.selected(this);boolean valid=u!=null&&!u.expired(System.currentTimeMillis());
-        LinearLayout hero=card();text(hero,valid?u.percent():"—%",56,TEXT,true);text(hero,Display.reset(this,u),14,MUTED,false);text(hero,Display.last(this,u),12,MUTED,false);gap(content,12);
+        seenStatus=BrowserLoginService.status();seenFloatingState=floatingState();seenReauthentication=Repo.reauthenticationRequired(this);
+        seenConnected=Store.connected(this);seenMeters=!Store.meters(this).isEmpty();seenAuto=Store.prefs(this).getBoolean("auto",true);seenInterval=Scheduler.minutes(this);
+        LinearLayout hero=card();heroPercent=text(hero,"—%",56,TEXT,true);heroReset=text(hero,"",14,MUTED,false);heroLast=text(hero,"",12,MUTED,false);gap(content,12);
         button(t("홈 위젯 꾸미기","Customize home widget"),true,()->openWidgetStyle(false));
         button(t("플로팅 위젯 꾸미기","Customize floating widget"),true,()->openWidgetStyle(true));
-        button(t("플로팅 위젯 열기·닫기","Show / hide floating widget"),false,this::floatingOptions);
+        if(seenFloatingState!=0){
+            text(content,seenFloatingState==2?t("플로팅 위젯 · 표시 중","Floating widget · Visible"):t("플로팅 위젯 · 숨김","Floating widget · Hidden"),13,MUTED,false);
+            button(t("플로팅 위젯 닫기","Close floating widget"),false,()->{FloatingWidgetService.hide(this);render();});
+        }else button(t("플로팅 위젯 띄우기","Show floating widget"),false,this::requestFloating);
         button(t("홈 화면에 위젯 추가","Add widget to home screen"),false,this::pin);gap(content,20);
         if(busy)text(content,t("확인 중…","Checking…"),13,ACCENT,false);
-        if(!localStatus.isEmpty())text(content,localStatus,13,0xffffd99b,false);
-        if(!Store.error(this).isEmpty()&&!Store.error(this).equals(localStatus))text(content,Store.error(this),13,0xffffd99b,false);
+        localStatusView=text(content,"",13,0xffffd99b,false);
+        storeErrorView=text(content,"",13,0xffffd99b,false);
         BrowserLoginService.Status login=BrowserLoginService.status();
         if(login.active()){
             text(content,login.message,14,MUTED,false);
             if(login.phase.equals("waiting"))button(t("로그인 페이지 다시 열기","Reopen sign-in page"),false,()->{openedAttempt=login.attempt;browser(login.url);});
             if(!login.phase.equals("finishing"))button(t("로그인 취소","Cancel sign-in"),false,()->BrowserLoginService.cancel(this));
+        }else if(seenReauthentication){
+            text(content,t("다시 로그인 필요","Sign-in required"),16,0xffffd99b,true);
+            button(t("ChatGPT 다시 로그인","Sign in to ChatGPT again"),true,this::consent);
+            button(t("연결 해제","Disconnect"),false,this::disconnect);
         }else if(Store.connected(this)){
             text(content,t("ChatGPT 연결됨","Connected to ChatGPT"),16,ACCENT,true);button(t("지금 새로고침","Refresh now"),false,()->run(()->new Repo(this).sync()));
             if(!Store.meters(this).isEmpty())button(t("표시할 주간 한도","Choose weekly limit"),false,this::chooseBucket);
             gap(content,12);Switch auto=new Switch(this);auto.setText(t("자동 새로고침","Automatic refresh"));auto.setTextColor(TEXT);auto.setChecked(Store.prefs(this).getBoolean("auto",true));auto.setPadding(0,dp(12),0,dp(12));
-            auto.setOnCheckedChangeListener((b,value)->{Store.prefs(this).edit().putBoolean("auto",value).apply();Scheduler.ensure(this);});content.addView(auto,new LinearLayout.LayoutParams(-1,-2));
+            auto.setOnCheckedChangeListener((b,value)->{Store.prefs(this).edit().putBoolean("auto",value).apply();ensureSchedule();render();});content.addView(auto,new LinearLayout.LayoutParams(-1,-2));
             button(t("자동 조회 간격 · ","Refresh interval · ")+Scheduler.minutes(this)+t("분"," min"),false,this::refreshInterval);
             button(t("연결 해제","Disconnect"),false,this::disconnect);
         }else{
@@ -85,10 +118,26 @@ public final class MainActivity extends Activity {
         }
         button(t("자동 조회 상태 · 절전 설정","Auto refresh · Battery settings"),false,this::automaticStatus);
         gap(content,20);button(t("공식 사용량 화면","Official usage page"),false,()->browser("https://chatgpt.com/codex/settings/usage"));
-        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" 0.6.3")
+        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" "+versionName())
             .setMessage(t("Codex의 주간 잔여량을 표시하는 비공식 위젯입니다. 일반 ChatGPT 모델의 통합 한도는 아닙니다.","An unofficial widget for the Codex weekly quota, not a combined limit for ChatGPT models."))
             .setPositiveButton("GitHub",(d,w)->browser("https://github.com/Husky-Bytes/WeeklyMeter")).setNegativeButton(t("닫기","Close"),null).show());
         button(t("글꼴 라이선스 · 상표 안내","Font licenses · Trademarks"),false,this::notices);
+        updateUsage();
+    }
+    private String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(android.content.pm.PackageManager.NameNotFoundException unavailable){return "";}}
+    private void updateUsage(){
+        if(heroPercent==null)return;
+        Usage usage=Store.selected(this);long now=System.currentTimeMillis();
+        setLabel(heroPercent,usage!=null&&!usage.expired(now)?usage.percent():"—%",false);
+        setLabel(heroReset,Display.reset(this,usage),false);setLabel(heroLast,Display.last(this,usage),false);
+        String message=Messages.localize(localStatus,Texts.locale(this));setLabel(localStatusView,message,true);
+        String error=Store.error(this);setLabel(storeErrorView,error.equals(message)?"":error,true);
+        ui.removeCallbacks(displayExpiry);
+        if(observing&&usage!=null){long delay=DisplayExpiry.nextDelay(now,usage.fetchedAt,usage.resetsAt);if(delay>0)ui.postDelayed(displayExpiry,delay);}
+    }
+    private void setLabel(TextView view,String value,boolean hideEmpty){
+        if(!view.getText().toString().equals(value))view.setText(value);
+        view.setVisibility(hideEmpty&&value.isEmpty()?View.GONE:View.VISIBLE);
     }
     private void openWidgetStyle(boolean floating){
         startActivity(new Intent(this,WidgetStyleSettingsActivity.class).putExtra(WidgetStyleSettingsActivity.EXTRA_FLOATING,floating));
@@ -112,19 +161,11 @@ public final class MainActivity extends Activity {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view->{
                 int minutes=RefreshInterval.parse(input.getText().toString());
                 if(minutes<0){input.setError(t("15~10080 사이의 정수를 입력해 주세요.","Enter a whole number from 15 to 10080."));return;}
-                Store.prefs(this).edit().putInt("minutes",minutes).apply();Scheduler.ensure(this);render();dialog.dismiss();
+                Store.prefs(this).edit().putInt("minutes",minutes).apply();ensureSchedule();render();dialog.dismiss();
             });
             input.setOnEditorActionListener((view,action,event)->{if(action==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();return true;}return false;});
         });
         dialog.show();
-    }
-    private void floatingOptions(){
-        boolean shown=FloatingWidgetService.isActive();
-        new AlertDialog.Builder(this).setTitle(t("플로팅 위젯","Floating widget"))
-            .setMessage(t("홈 위젯을 빠르게 3번 누르면 표시됩니다.\n\n누르기 · 새로고침\n끌기 · 이동\n길게 누르기 · 닫기",
-                "Tap the home widget 3 times quickly to show it.\n\nTap · Refresh\nDrag · Move\nLong press · Close"))
-            .setPositiveButton(shown?t("닫기","Hide"):t("띄우기","Show"),(d,w)->{if(shown){FloatingWidgetService.hide(this);render();}else requestFloating();})
-            .setNegativeButton(t("취소","Cancel"),null).show();
     }
     private void requestFloating(){
         if(overlayAllowed()){showFloating();return;}
@@ -273,7 +314,7 @@ public final class MainActivity extends Activity {
     private void pin(){AppWidgetManager m=getSystemService(AppWidgetManager.class);if(m.isRequestPinAppWidgetSupported())m.requestPinAppWidget(new ComponentName(this,WeeklyWidget.class),null,null);
         else new AlertDialog.Builder(this).setMessage(t("홈 화면 빈 곳 길게 누르기 → 위젯 → 주간 잔여량","Long-press an empty area on your home screen → Widgets → WeeklyMeter")).setPositiveButton(t("확인","OK"),null).show();}
     private void chooseBucket(){List<Usage> list=Store.meters(this);String[] labels=new String[list.size()];for(int i=0;i<labels.length;i++)labels[i]=Messages.localize(list.get(i).label,Texts.locale(this))+" · "+list.get(i).percent();
-        new AlertDialog.Builder(this).setTitle(t("주간 한도 선택","Choose weekly limit")).setItems(labels,(d,which)->{Store.prefs(this).edit().putString("selected",list.get(which).id).apply();WeeklyWidget.renderAll(this);render();}).show();}
+        new AlertDialog.Builder(this).setTitle(t("주간 한도 선택","Choose weekly limit")).setItems(labels,(d,which)->{Store.prefs(this).edit().putString("selected",list.get(which).id).apply();repaintWidgets();render();}).show();}
     private void browser(String address){Intent i=new Intent(Intent.ACTION_VIEW,Uri.parse(address));i.addCategory(Intent.CATEGORY_BROWSABLE);open(i);}
     private void open(Intent i){try{startActivity(i);}catch(ActivityNotFoundException|SecurityException e){localStatus=t("열 수 있는 앱이 없습니다.","No app is available to open this.");render();}}
     private LinearLayout card(){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(20),dp(16),dp(20),dp(16));box.setBackground(round(CARD,24));content.addView(box,new LinearLayout.LayoutParams(-1,-2));return box;}

@@ -7,5 +7,5 @@ final class Repo {
     void reconcileConnection(){reconciles++;}
     static String friendly(Exception e){return "failure";}
 }
-final class Scheduler {static int ensures;static void ensure(Context c){ensures++;}}
+final class Scheduler {static int ensures;static boolean fail;static void ensure(Context c){ensures++;if(fail)throw new IllegalStateException("synthetic scheduler failure");}}
 final class Store {static int errors;static void error(Context c,String value){errors++;}}

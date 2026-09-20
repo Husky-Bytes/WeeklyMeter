@@ -36,7 +36,7 @@ final class Scheduler {
         catch(RuntimeException blocked){
             long id=RefreshFeedback.begin(c);RefreshFeedback.error(c,id);
             Store.error(c,"Android가 위젯 조회 시작을 막았어. 배터리 제한을 확인한 뒤 위젯을 다시 눌러 줘.");
-            WeeklyWidget.renderAll(c);
+            try{WeeklyWidget.renderAll(c);}catch(RuntimeException unavailable){}
         }
     }
     static void cancel(Context c){

@@ -200,7 +200,7 @@ public final class LifecycleTests {
         RefreshFeedback.running(c,id);RefreshFeedback.acknowledge(c,id);check(RefreshFeedback.snapshot(c).state.equals("running"),"acknowledge retains running phase");
         RefreshFeedback.success(c,id);long next=RefreshFeedback.begin(c);RefreshFeedback.error(c,id);check(next!=id&&RefreshFeedback.snapshot(c).state.equals("waiting"),"stale result cannot change newer generation");
         SystemClock.now+=1000;Handler.drain();check(RefreshFeedback.snapshot(c).visible,"old terminal expiry cannot clear new waiting");
-        RefreshFeedback.success(c,next);long expires=RefreshFeedback.snapshot(c).expiresAt;check(expires-SystemClock.now==1000,"default terminal duration one second");
+        RefreshFeedback.success(c,next);RefreshFeedback.publishChanged(c);long expires=RefreshFeedback.snapshot(c).expiresAt;check(expires-SystemClock.now==1000,"default terminal duration one second");
         SystemClock.now=expires;check(!RefreshFeedback.snapshot(c).visible,"render expires badge even before callback");
         int before=WeeklyWidget.renders;Handler.drain();check(WeeklyWidget.renders>before,"expiry callback redraws widget");
         Context.STYLE.data.put("feedback_enabled",false);next=RefreshFeedback.begin(c);check(!RefreshFeedback.snapshot(c).visible,"disabled feedback remains hidden");

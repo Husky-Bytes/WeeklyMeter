@@ -31,7 +31,8 @@ final class AppLanguage {
         // A user choice in this app must not be mistaken for a change made in Android Settings.
         if(Build.VERSION.SDK_INT>=33){LocaleManager manager=c.getSystemService(LocaleManager.class);if(manager!=null)edit.putString("platform_snapshot",manager.getApplicationLocales().toLanguageTags());}
         edit.apply();synchronize(c);
-        WeeklyWidget.renderAll(c); // Repaint cached data only: language selection never queries the account.
+        // A rejected launcher update must not undo or crash a saved language change.
+        try{WeeklyWidget.renderAll(c);}catch(RuntimeException unavailable){}
     }
     static synchronized void synchronize(Context c){
         SharedPreferences preferences=preferences(c);

@@ -54,7 +54,7 @@ public final class WidgetRefreshService extends Service {
         catch(RuntimeException blocked){
             long id=RefreshFeedback.begin(this);RefreshFeedback.error(this,id);
             Store.error(this,"Android가 위젯 조회 시작을 막았어. 배터리 제한을 확인하고 다시 눌러 줘.");
-            WeeklyWidget.renderAll(this);stopSelfResult(startId);return START_NOT_STICKY;
+            publish();stopSelfResult(startId);return START_NOT_STICKY;
         }
         if(homeTap){
             WidgetTapSequence.Action action=HOME_TAPS.tap(intent.getIntExtra(EXTRA_APP_WIDGET_ID,-1),SystemClock.elapsedRealtime());
@@ -75,12 +75,12 @@ public final class WidgetRefreshService extends Service {
             if(old.terminal){showTerminal(old);updateHold(old);}
             else if(old.phase.get()==RUNNING)RefreshFeedback.running(this,old.id);
             else RefreshFeedback.waiting(this,old.id);
-            WeeklyWidget.renderAll(this);
+            RefreshFeedback.publishChanged(this);
             return START_NOT_STICKY;
         }
         Task task=new Task(RefreshFeedback.begin(this),SystemClock.elapsedRealtime());current=task;
         notifyProgress("위젯 사용량을 조회하고 있어.");
-        WeeklyWidget.renderAll(this);
+        RefreshFeedback.publishChanged(this);
         main.postDelayed(()->watchdog(task),REQUEST_TIMEOUT_MS);
         main.postDelayed(()->hardStop(task),SERVICE_CAP_MS);
         main.postDelayed(()->keepWaitingVisible(task),10_000);
@@ -89,12 +89,12 @@ public final class WidgetRefreshService extends Service {
             Repo.SyncOutcome outcome=Repo.SyncOutcome.CANCELLED;String failure="";
             try{
                 if(!task.stopped.get()){
-                    main.post(()->{if(active(task)&&!task.stopped.get()&&!task.terminal){RefreshFeedback.running(this,task.id);WeeklyWidget.renderAll(this);}});
+                    main.post(()->{if(active(task)&&!task.stopped.get()&&!task.terminal){RefreshFeedback.running(this,task.id);RefreshFeedback.publishChanged(this);}});
                     Repo repo=new Repo(this);
-                    // SharedPreferences may not yet reflect a durably saved
-                    // session after a cold start. The encrypted vault is truth.
-                    if(!repo.reconcileConnection())throw new IllegalStateException("앱에서 먼저 로그인해 줘.");
-                    if(!task.stopped.get())outcome=repo.sync(task.stopped::get);
+                    // Recover connection and query from one encrypted-session
+                    // read on the serial worker, including after a cold start.
+                    outcome=repo.syncConnected(task.stopped::get);
+                    if(outcome==Repo.SyncOutcome.SIGNED_OUT)throw new IllegalStateException("앱에서 먼저 로그인해 줘.");
                 }
             }catch(Exception error){failure=Repo.friendly(error);}
             finally{task.phase.set(DONE);}
@@ -123,14 +123,19 @@ public final class WidgetRefreshService extends Service {
     private void notifyProgress(String text){
         try{getSystemService(NotificationManager.class).notify(NOTIFICATION,notification(text));}catch(RuntimeException ignored){}
     }
+    private void publish(){
+        // A launcher/overlay display failure is not a failed usage request and
+        // must never prevent submission, cancellation or foreground cleanup.
+        try{WeeklyWidget.renderAll(this);}catch(RuntimeException unavailable){}
+    }
     private boolean active(Task task){return !destroyed&&current==task&&task.id==RefreshFeedback.currentRequestId(this);}
     private void keepWaitingVisible(Task task){
         if(!active(task)||task.terminal||task.stopped.get()||task.phase.get()!=QUEUED)return;
-        RefreshFeedback.waiting(this,task.id);WeeklyWidget.renderAll(this);
+        RefreshFeedback.waiting(this,task.id);RefreshFeedback.publishChanged(this);
         main.postDelayed(()->keepWaitingVisible(task),10_000);
     }
     private void completed(Task task,Repo.SyncOutcome outcome,String error){
-        if(!active(task)){WeeklyWidget.renderAll(this);return;}
+        if(!active(task)){publish();return;}
         if(task.terminal){stopWhenReady(task);return;}
         if(!error.isEmpty()){
             Store.error(this,error);terminal(task,"error","조회를 완료하지 못했어. 위젯을 다시 눌러 줘.");
@@ -144,7 +149,7 @@ public final class WidgetRefreshService extends Service {
         if(!active(task))return;
         task.terminal=true;task.terminalState=state;showTerminal(task);
         updateHold(task);
-        WeeklyWidget.renderAll(this);notifyProgress(notificationText);stopWhenReady(task);
+        publish();notifyProgress(notificationText);stopWhenReady(task);
     }
     private void updateHold(Task task){
         RefreshFeedback.Snapshot snapshot=RefreshFeedback.snapshot(this);
@@ -190,24 +195,34 @@ public final class WidgetRefreshService extends Service {
     }
     private void closeTask(Task task){
         if(current!=task)return;
-        if(task.id==RefreshFeedback.currentRequestId(this))RefreshFeedback.clear(this);
-        WeeklyWidget.renderAll(this);current=null;
-        if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;}
-        stopSelfResult(latestStartId);
+        try{
+            if(task.id==RefreshFeedback.currentRequestId(this))RefreshFeedback.clear(this);
+            RefreshFeedback.publishChanged(this);
+        }finally{current=null;finishService();}
+    }
+    private void leaveForeground(){
+        if(foreground){foreground=false;stopForeground(STOP_FOREGROUND_REMOVE);}
+    }
+    private void finishService(){
+        try{leaveForeground();}finally{stopSelfResult(latestStartId);}
     }
     @Override public void onTimeout(int startId,int type){
         Task task=current;
-        if(task!=null){cancelAtSafeCheckpoint(task);if(!task.terminal&&active(task)){Store.error(this,"Android가 조회 작업을 종료했어. 위젯을 다시 눌러 줘.");RefreshFeedback.error(this,task.id);WeeklyWidget.renderAll(this);}}
-        current=null;if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;}stopSelfResult(latestStartId);
+        try{
+            if(task!=null){cancelAtSafeCheckpoint(task);if(!task.terminal&&active(task)){Store.error(this,"Android가 조회 작업을 종료했어. 위젯을 다시 눌러 줘.");RefreshFeedback.error(this,task.id);publish();}}
+        }finally{current=null;finishService();}
     }
     @Override public void onDestroy(){
         destroyed=true;main.removeCallbacksAndMessages(null);
-        Task task=current;if(task!=null){cancelAtSafeCheckpoint(task);if(!task.terminal&&task.id==RefreshFeedback.currentRequestId(this)){
-            Store.error(this,"위젯 조회 작업이 종료됐어. 위젯을 다시 눌러 줘.");RefreshFeedback.error(this,task.id);WeeklyWidget.renderAll(this);
-        }}
-        current=null;
-        // Repo.IO belongs to the whole app. Never shut it down or interrupt a
-        // running rotation merely because this temporary service is destroyed.
-        super.onDestroy();
+        try{
+            Task task=current;if(task!=null){cancelAtSafeCheckpoint(task);if(!task.terminal&&task.id==RefreshFeedback.currentRequestId(this)){
+                Store.error(this,"위젯 조회 작업이 종료됐어. 위젯을 다시 눌러 줘.");RefreshFeedback.error(this,task.id);publish();
+            }}
+        }finally{
+            current=null;
+            // Repo.IO belongs to the whole app. Never shut it down or interrupt
+            // a running rotation because this temporary service is destroyed.
+            try{leaveForeground();}finally{super.onDestroy();}
+        }
     }
 }

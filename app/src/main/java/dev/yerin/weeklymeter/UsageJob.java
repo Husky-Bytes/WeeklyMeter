@@ -46,11 +46,13 @@ public final class UsageJob extends JobService {
         try{
             if(!enabled()){outcome="disabled";return;}
             Repo repo=new Repo(this);
-            if(!repo.reconcileConnection()){outcome="signed_out";return;}
-            if(task.stopped.get())return;
-            if(!enabled()){outcome="disabled";return;}
-            Repo.SyncOutcome result=repo.sync(task.stopped::get);
-            outcome=result==Repo.SyncOutcome.UPDATED?"updated":result==Repo.SyncOutcome.SKIPPED?"skipped":"cancelled";
+            AtomicBoolean disabled=new AtomicBoolean();
+            Repo.SyncOutcome result=repo.syncConnected(task.stopped::get,()->{
+                disabled.set(!enabled());
+                return disabled.get();
+            });
+            outcome=result==Repo.SyncOutcome.UPDATED?"updated":result==Repo.SyncOutcome.SKIPPED?"skipped":
+                result==Repo.SyncOutcome.SIGNED_OUT?"signed_out":disabled.get()?"disabled":"cancelled";
         }catch(Exception error){outcome="error";Store.error(this,Repo.friendly(error));}
         finally{
             AutoRefreshDiagnostics.complete(this,task.diagnosticId,outcome);

@@ -8,5 +8,7 @@ final class WeeklyWidget {
         attempts++;
         if(failures.getAndUpdate(value->Math.max(0,value-1))>0)throw new IllegalStateException("Synthetic launcher failure");
         percent=Store.percent;fetchedAt=Store.fetchedAt;renders++;
+        RefreshFeedback.published(false,RefreshFeedback.snapshot(c));RefreshFeedback.published(true,RefreshFeedback.snapshot(c,true));
     }
+    static void renderFeedback(Context c,boolean home,boolean floating){renderAll(c);}
 }

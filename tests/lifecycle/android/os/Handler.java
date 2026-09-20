@@ -6,6 +6,7 @@ public class Handler {
     public Handler(Looper l){}
     public boolean post(Runnable action){queue.add(action);return true;}
     public boolean postDelayed(Runnable action,long delay){delayed.add(new Delayed(action,SystemClock.elapsedRealtime()+delay));return true;}
+    public void removeCallbacks(Runnable action){queue.removeIf(task->task==action);delayed.removeIf(task->task.action==action);}
     public static void drain(){for(Delayed d:delayed)if(d.when<=SystemClock.elapsedRealtime()&&delayed.remove(d))queue.add(d.action);for(Runnable task;(task=queue.poll())!=null;)task.run();}
     static final class Delayed{final Runnable action;final long when;Delayed(Runnable action,long when){this.action=action;this.when=when;}}
 }

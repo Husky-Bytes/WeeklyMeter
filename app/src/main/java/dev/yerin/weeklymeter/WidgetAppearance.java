@@ -44,15 +44,23 @@ final class WidgetAppearance {
         }catch(Exception ignored){s=WidgetStyle.defaults();}
         s.normalize();return s;
     }
-    static void save(Context c,String prefName,WidgetStyle original){
-        WidgetStyle s=original.copy();s.normalize();List<Object> rows=new ArrayList<>(),order=new ArrayList<>();
+    static boolean save(Context c,String prefName,WidgetStyle original){
+        WidgetStyle s=original.copy();s.normalize();String encoded=encode(s);
+        SharedPreferences prefs=c.getSharedPreferences(prefName,Context.MODE_PRIVATE);
+        try{if(encoded.equals(prefs.getString("style_v3",""))&&s.feedbackEnabled==prefs.getBoolean("feedback_enabled",true)&&s.feedbackDurationMs==prefs.getInt("feedback_duration_ms",1000))return false;}catch(ClassCastException invalid){}
+        prefs.edit().putString("style_v3",encoded).putBoolean("feedback_enabled",s.feedbackEnabled).putInt("feedback_duration_ms",s.feedbackDurationMs).apply();return true;
+    }
+    static String signature(WidgetStyle original){
+        WidgetStyle s=original.copy();s.normalize();return encode(s)+"|"+s.feedbackEnabled+"|"+s.feedbackDurationMs;
+    }
+    private static String encode(WidgetStyle s){
+        List<Object> rows=new ArrayList<>(),order=new ArrayList<>();
         for(WidgetStyle.Row r:s.rows)rows.add(Json.map("enabled",r.enabled,"font",r.font,"size",r.sizeSp,"color",r.color,"bold",r.bold,"alignment",r.alignment,"offset_y",r.offsetY));
         for(int id:s.order)order.add(id);
         Map<String,Object> value=Json.map("version",3,"background",s.background,"opacity",s.opacity,"overall_opacity",s.overallOpacity,"radius",s.radius,"auto_fit",s.autoFit,
             "automatic_padding",s.automaticPadding,"padding_horizontal_dp",s.paddingHorizontalDp,"padding_vertical_dp",s.paddingVerticalDp,"row_gap_dp",s.rowGapDp,
             "brand_mode",s.brandMode,"logo_size",s.brandLogoSizeSp,"rows",rows,"order",order,"reset_date",dateMap(s.resetDate),"last_date",dateMap(s.lastDate));
-        c.getSharedPreferences(prefName,Context.MODE_PRIVATE).edit().putString("style_v3",Json.encode(value))
-            .putBoolean("feedback_enabled",s.feedbackEnabled).putInt("feedback_duration_ms",s.feedbackDurationMs).apply();
+        return Json.encode(value);
     }
     private static Map<String,Object> dateMap(WidgetStyle.DateSpec d){return Json.map("year",d.year,"month",d.month,"day",d.day,"weekday",d.weekday,"hour",d.hour,"minute",d.minute,"second",d.second,"use_24h",d.use24h,"ampm",d.ampm,"leading_zero",d.leadingZero,"two_lines",d.twoLines,"label",d.label,"separator",d.separator);}
     private static void readDate(WidgetStyle.DateSpec d,Map<String,Object> m){

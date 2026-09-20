@@ -20,6 +20,7 @@ public final class BrowserLoginService extends Service {
     }
     private static volatile Status status=new Status(0,"idle","","");
     static Status status(){return status;}
+    private static void updateStatus(Status value){status=value;AppSignals.changed();}
     private final Handler main=new Handler(Looper.getMainLooper());
     private final ExecutorService listener=Executors.newSingleThreadExecutor();
     private final AtomicBoolean cancelled=new AtomicBoolean();
@@ -34,7 +35,7 @@ public final class BrowserLoginService extends Service {
         }
         if(started)return START_NOT_STICKY;
         started=true;attempt=SystemClock.elapsedRealtimeNanos();
-        status=new Status(attempt,"starting","","브라우저 로그인 준비 중…");
+        updateStatus(new Status(attempt,"starting","","브라우저 로그인 준비 중…"));
         NotificationManager nm=getSystemService(NotificationManager.class);
         nm.createNotificationChannel(new NotificationChannel(CHANNEL,Messages.localize("로그인 진행",Texts.locale(this)),NotificationManager.IMPORTANCE_LOW));
         Notification n=notification("폰 브라우저에서 로그인을 완료해 줘.");
@@ -47,13 +48,13 @@ public final class BrowserLoginService extends Service {
                 BrowserAuth.Session current=BrowserAuth.bind(Texts.locale(this));session=current;
                 if(cancelled.get()){current.close();return;}
                 final String authorizationUrl=current.authorizeUrl();
-                main.post(()->{if(!cancelled.get()&&status.attempt==attempt)status=new Status(attempt,"waiting",authorizationUrl,"브라우저에서 로그인한 뒤 이 앱으로 돌아와 줘.");});
+                main.post(()->{if(!cancelled.get()&&status.attempt==attempt)updateStatus(new Status(attempt,"waiting",authorizationUrl,"브라우저에서 로그인한 뒤 이 앱으로 돌아와 줘."));});
                 BrowserAuth.Result result=current.awaitCallback();
                 if(cancelled.get())return;
                 if(result.denied){main.post(()->{if(currentAttempt())finish("브라우저 로그인이 승인되지 않았어. 다시 시도할 수 있어.");});return;}
                 main.post(()->{
                     if(cancelled.get()||status.attempt!=attempt)return;
-                    status=new Status(attempt,"finishing","","로그인 정보를 안전하게 저장하는 중…");
+                    updateStatus(new Status(attempt,"finishing","","로그인 정보를 안전하게 저장하는 중…"));
                     // The long browser wait never occupies the serial credential executor.
                     Repo.IO.execute(()->{
                     String message;
@@ -63,7 +64,7 @@ public final class BrowserLoginService extends Service {
                         message="로그인 완료";
                         try{new Repo(this).sync();}catch(Exception ignored){/* Details remain in the app; keep the login. */}
                     }catch(Exception e){message=Repo.friendly(e);}
-                    final String done=message;main.post(()->{if(currentAttempt())finish(done);else{Scheduler.ensure(this);WeeklyWidget.renderAll(this);}});
+                    final String done=message;main.post(()->{if(currentAttempt())finish(done);else publish();});
                     });
                 });
             }catch(Exception e){
@@ -87,15 +88,23 @@ public final class BrowserLoginService extends Service {
     static void cancel(Context c){c.startService(new Intent(c,BrowserLoginService.class).setAction(CANCEL));}
     private boolean currentAttempt(){return !cancelled.get()&&status.attempt==attempt&&status.active();}
     private void closeListener(){BrowserAuth.Session current=session;if(current!=null)try{current.close();}catch(Exception ignored){}}
+    private void publish(){
+        // A saved login must not fail or be exchanged again because a system
+        // scheduler or widget host rejects this independent cache update.
+        try{Scheduler.ensure(this);}catch(RuntimeException unavailable){}
+        try{WeeklyWidget.renderAll(this);}catch(RuntimeException unavailable){}
+    }
     private void finish(String message){
-        closeListener();
-        if(status.attempt==attempt)status=new Status(attempt,"done","",message);
-        Scheduler.ensure(this);WeeklyWidget.renderAll(this);stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();
+        try{
+            closeListener();
+            if(status.attempt==attempt)updateStatus(new Status(attempt,"done","",message));
+            publish();
+        }finally{try{stopForeground(STOP_FOREGROUND_REMOVE);}finally{stopSelf();}}
     }
     @Override public void onTimeout(int startId,int type){cancelled.set(true);finish("로그인 대기 시간이 끝났어. 다시 시작해 줘.");}
     @Override public void onDestroy(){
         cancelled.set(true);closeListener();listener.shutdownNow();
-        if(status.attempt==attempt&&status.active())status=new Status(attempt,"done","","로그인 작업이 종료됐어. 다시 시작해 줘.");
+        if(status.attempt==attempt&&status.active())updateStatus(new Status(attempt,"done","","로그인 작업이 종료됐어. 다시 시작해 줘."));
         super.onDestroy();
     }
 }

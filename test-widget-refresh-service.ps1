@@ -9,3 +9,5 @@ $manualRuntime=if($JavaBin){Join-Path $JavaBin 'java.exe'}else{'java'}
 if($LASTEXITCODE -ne 0){throw 'Widget refresh service compilation failed'}
 & $manualRuntime -cp $OutputDirectory dev.yerin.weeklymeter.WidgetRefreshServiceTests
 if($LASTEXITCODE -ne 0){throw 'Widget refresh service tests failed'}
+& $manualRuntime -cp $OutputDirectory dev.yerin.weeklymeter.WidgetPublicationFailureTests
+if($LASTEXITCODE -ne 0){throw 'Widget publication failure tests failed'}

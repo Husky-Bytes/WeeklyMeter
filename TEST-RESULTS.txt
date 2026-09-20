@@ -1,6 +1,198 @@
+WeeklyMeter 0.6.6 — rendering/editor optimization and display synchronization, 2026-09-21
+
+CURRENT LOCAL BUILD — build-v066 completed with exit code 0
+Package: dev.yerin.weeklymeter
+versionCode: 16; versionName: 0.6.6; minSdk26 / targetSdk35
+Distribution filename: WeeklyMeter-0.6.6.apk
+PASS: 15,812 host executable checks, including source contracts.
+PASS: 49 separate static icon checks and 18 XML/resource/manifest checks.
+PASS: Windows Android compilation, aapt2 packaging, DEX, alignment and signing.
+PASS: independent zipalign -c 4 and APK v2/v3 certificate verification.
+APK size: 3655740 bytes
+APK SHA256: 51824d5ca0e3aa573d888fb54d35b0bc920cc8767b8c75aba1f1ec87cb235906
+Signing certificate SHA256: abfc4290289a8df7abffe951cf096fcd1fbe3972f0887d95390bab5a4d5816ab
+The existing signing key is unchanged. No credentials or signing material are bundled.
+Build validation and publication are separate; see GitHub Releases for availability:
+https://github.com/Husky-Bytes/WeeklyMeter/releases
+
+0.6.6 HOST SUITES (all run on the final production source)
+Core 49; usage/JSON scenarios 71 (includes, not adds, 1001 sampled percentages);
+style/date/layout 1323; feedback model 40; refresh interval 107; font assets 12;
+authentication 173; HTTP deadline/worker 66; scheduler/job lifecycle 167;
+browser PKCE/callback 287; browser service lifecycle 49;
+manual refresh 118; publication-failure/expiry/late-publication lifecycle 89;
+message localization 2303; language policy 39; language/application lifecycle 89;
+widget publication/reuse 474; background-access diagnostics 1006;
+floating style/persistence 5947; geometry/gesture/source contracts 1170;
+actual floating service against Android doubles 244; preview geometry 1914;
+local display deadline/events/source contracts 39;
+APK assets 36 (run before and after signing, counted once).
+Repeated development runs are not counted again. Some nested native output is
+in the task command record rather than PowerShell's build transcript.
+
+0.6.6 CHANGES AND CHECKED BOUNDARIES
+- Same-size home publication: two IDs with [64x64,64x64,128x64] render twice,
+  formerly six times. Bitmap identity is shared, click identities stay per ID.
+  Legacy identical orientations/IDs reuse one render; cache does not survive
+  a publication. Retained: max four variants per ID and cache freshness lock.
+- No-op style saves: normalized feedback settings are included in equality.
+  Disabled feedback and cleanup after expiry skip redundant publication.
+  Equal home/floating deadlines share one timer/publication; partial host
+  failure, late bitmap arrival after expiry, and cleared-generation races
+  still clear potential visible badges without starting another request.
+- Floating: automatic-setting/position writes and drag do not allocate a new
+  bitmap; changed dimensions do. Unexpired host retries reuse pixels, while
+  cache expiry/clock rollback force redraw. Hidden overlays cancel display
+  timers; wake restores local expiry without changing network scheduling.
+- A background publication during drawing was reproduced: two assertions
+  failed before the dedicated main-thread invalidation fix. Five coalesced
+  invalidations now produce one follow-up draw containing the latest cache.
+- Main uses lifecycle-owned event/preference observers instead of 500 ms
+  polling, with label-only updates for usage and local reset/age expiry.
+  English errors are localized before display and duplicate suppression.
+- Editor lazily creates pages/rows/color wheels; per-frame reflection visits
+  visible controls only; no-change flushes are skipped. Source contracts and
+  independent review cover this wiring; actual Android interaction is NOT run.
+- One serial Repo refresh reads the authoritative encrypted-session double
+  once. Cold recovery, changed sessions, after-recovery disable, cancellation,
+  token rotation, storage failure, quarantine and 401 retry remain covered.
+  No plaintext session map is retained between tasks. Eligibility is checked
+  once after recovery, not at each network cancellation checkpoint.
+
+ANDROID HARNESS — COMPILE ONLY, NOT EXECUTED
+The updated harness compiled, DEXed, signed and verified in runtime-v066-final
+against this final app build, without -Run and without starting an emulator.
+It derives expected version name/code from the built APK instead of 0.6.3.
+New pending runtime cases cover event-driven main labels/expiry, lazy editor
+creation, frame batching and immediate final-edit persistence.
+An initial sandboxed JDK attempt emitted a ZIP cleanup AccessDenied diagnostic
+despite exit 0. The runner now rejects that diagnostic, and the final narrowly
+approved local compilation completed cleanly. The earlier result is not counted.
+
+NOT VERIFIED: current-version Android/emulator UI execution, real login/token
+refresh/Keystore behavior, physical APK installation, S25 Ultra/One UI launcher
+pixels, actual keyguard broadcasts, power saving, long-running service survival,
+network-account behavior, or a measured speed/battery improvement percentage.
+No permissions, network endpoints, periodic refresh intervals, external relay,
+or added usage polling were introduced. Font assets/features were retained.
+Older runtime results below are historical and not current-version evidence.
+
+--- HISTORICAL 0.6.5 RECORD ---
+WeeklyMeter 0.6.5 — review fixes and retained floating recovery, 2026-09-21
+
+PREVIOUS LOCAL BUILD — build-v065 completed with exit code 0
+Package: dev.yerin.weeklymeter
+versionCode: 15; versionName: 0.6.5; minSdk26 / targetSdk35
+Distribution filename: WeeklyMeter-0.6.5.apk
+PASS: 15,657 host executable checks; source contracts are included in this total.
+PASS: 49 separate static icon checks and 18 XML/resource/manifest checks.
+PASS: Windows Android compilation, aapt2 packaging, DEX, alignment and signing.
+PASS: zipalign -c 4 and APK v2/v3 verification with the unchanged certificate.
+APK size: 3647548 bytes
+APK SHA256: 9b4b201eaf8fc15f22e23d2f9cad5254b446659b78e9bcafc0dd2822f472a92d
+Signing certificate SHA256: abfc4290289a8df7abffe951cf096fcd1fbe3972f0887d95390bab5a4d5816ab
+This local build has not been published to GitHub by this task.
+
+0.6.5 HOST SUITES (all run on the current production source)
+Core 49; usage/JSON scenarios 71 (includes, not adds, 1001 sampled percentages);
+style/date/layout 1323; feedback model 40; refresh interval 107; font assets 12;
+authentication 141; HTTP deadline/worker 66; scheduler/job lifecycle 167;
+browser PKCE/callback 287; browser service lifecycle 49;
+manual refresh 118; publication-failure service lifecycle 80;
+message localization 2303; language policy 39; language/application lifecycle 89;
+widget publication 463; background-access diagnostics 1006;
+floating style/persistence 5947; geometry/gesture/source contracts 1170;
+actual floating service against Android doubles 180; preview geometry 1914;
+APK assets 36 (run before and after signing, counted once).
+The full build ran 140 auth checks. The final added preference-guard assertion
+was recompiled and run in the same build's auth-test-classes: 141 PASS. No
+production change was made for that last assertion. Other checks are not added
+again for repeated development runs. Sub-runner output is in the task command
+record; PowerShell Start-Transcript does not capture every nested native output.
+
+0.6.5 FIXES AND REPRODUCTIONS
+- Main capture policy: blanket FLAG_SECURE removed; source contract checked.
+- Fully transparent rendered bitmaps: detach window/touch region, keep active
+  session and existing periodic schedule, restore when visible content returns.
+  Same new lifecycle suite failed 13 checks before this fix, then passed 180.
+- Publication failure injection: initial/running/terminal/timeout/destroy/expiry
+  display exceptions no longer block request or cleanup. New manual suite had
+  34 failed checks before the fix and passes 80. Expanded browser service tests
+  had 13 failed checks before its cleanup fix and pass 49 total.
+- Language/style persistence and schedule/render isolation cover real provider,
+  receiver and Application entry points with failing platform doubles.
+- Authentication: allowlisted invalid-grant reasons, no raw error-body logging,
+  local reauthentication state, explicit safe browser replacement and session
+  generation cache reset; transient failures do not delete credentials.
+  Also covers uncertain post-send responses, failed new-token storage, and a
+  failed preference commit's same-process guard. Old invalid_grant behavior was
+  reproduced with a failing test before the fix.
+- HTTP: whole-request monotonic deadline, bounded workers, stalled/slow streams,
+  GET cancellation, preserving complete token responses during delayed close,
+  atomic POST-start/abandon boundary. Old slow-drip behavior failed the same
+  deadline assertion. Test time budgets are shortened synthetic values.
+- Main floating Visible/Hidden status and direct Close button are source-checked;
+  no notification permission added. Real interactive UI behavior is unverified.
+
+0.6.5 NOT VERIFIED
+No emulator or physical device was launched; no real account, token, live API,
+Android Keystore or Samsung/One UI runtime was exercised. The updated Android
+instrumentation source compiled against this APK's classes. A sandbox javac ZIP
+cleanup access diagnostic was resolved by rerunning that compilation with the
+required file access; the clean compile passed. Compilation is NOT runtime QA.
+30 seconds is per HTTP request, not the full sync. Native I/O cancellation is
+best-effort; stalled transport rejects new work without growing worker threads.
+Storage-device failure and process death cannot guarantee durable guard storage.
+Host tests do not prove OS screenshots, launcher pixels, actual screen/keyguard
+broadcasts, long-running OEM service survival, or resolution on the user's phone.
+All older runtime results below are historical, not current-version validation.
+
+--- HISTORICAL 0.6.4 RECORD ---
+WeeklyMeter 0.6.4 — floating wake/unlock recovery, 2026-09-21
+
+PREVIOUS LOCAL BUILD — build-v064 completed with exit code 0
+Package: dev.yerin.weeklymeter
+versionCode: 14; versionName: 0.6.4; minSdk26 / targetSdk35
+Distribution filename: WeeklyMeter-0.6.4.apk
+PASS: 15,154 host executable checks (15,026 retained + 128 new lifecycle checks).
+PASS: 49 separate static icon checks and 18 XML files/resource/manifest checks.
+PASS: Windows Android compilation, aapt2 packaging, DEX, alignment and signing.
+PASS: zipalign -c 4; APK v2/v3 verification with the unchanged signing certificate.
+APK size: 3643452 bytes
+APK SHA256: 170c7b53b83c7eb89170ffefca821be87f25d757c5bc647fc08b8068176d8fd9
+Signing certificate SHA256: abfc4290289a8df7abffe951cf096fcd1fbe3972f0887d95390bab5a4d5816ab
+This local build has not been published to GitHub by this task.
+
+0.6.4 IMPLEMENTATION AND NEW REGRESSION COVERAGE
+- Wake/unlock signals recheck local screen/keyguard state every 500ms for up to
+  15 seconds; normal drawing/feedback work does not remove the separate retry.
+- A transient addView/updateViewLayout failure is retried within that deadline.
+- Active sessions return START_STICKY and accept Android's null-intent recreation.
+- Screen-off cancels pending wake work. Hidden locked sessions stay active without
+  polling indefinitely. Explicit close, long press, destruction and permission
+  revocation clear pending retries. No boot auto-start or saved enabled flag.
+- Actual production FloatingWidgetService/FloatingGeometry/FloatingGesture run
+  against deterministic Android doubles in test-floating-lifecycle.ps1.
+- 128/128 current checks passed, including late keyguard and interactive state
+  with no subsequent broadcast, transient window failures, sticky recreation,
+  bounded persistent failure, and no extra refresh or schedule changes on wake.
+- The same harness on the prior 1589a5c service failed 28/128 checks, including
+  repeated sticky-policy assertions. This means regression coverage, NOT 28 bugs.
+- Other authentication, usage, scheduling, style, language and asset suites were
+  rerun in this build. No real account, live token or real API call was used.
+
+0.6.4 NOT VERIFIED
+No emulator or physical-device run for this version. Host doubles do not verify
+actual OS screen broadcasts, process recreation timing, launcher rendering or
+S25 Ultra / One UI power policy. Real account and Android Keystore operation were
+not tested. Force-stop, reboot and OEM restrictions are not bypassed. The reported
+phone's exact cause and resolution have not been confirmed with device logs.
+Previous 0.6.3 emulator results below are historical, not 0.6.4 runtime results.
+
+--- HISTORICAL 0.6.3 RECORD ---
 WeeklyMeter 0.6.3 — floating-window screen-capture fix, 2026-09-21
 
-CURRENT RELEASE — build-v063 completed with exit code 0
+PREVIOUS RELEASE — build-v063 completed with exit code 0
 Package: dev.yerin.weeklymeter
 versionCode: 13; versionName: 0.6.3; minSdk26 / targetSdk35
 Distribution filename: WeeklyMeter-0.6.3.apk

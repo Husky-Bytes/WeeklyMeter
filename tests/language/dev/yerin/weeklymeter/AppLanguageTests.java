@@ -44,6 +44,25 @@ public final class AppLanguageTests {
         equal(Locale.KOREAN,Texts.locale(broadcast));equal("ko",AppLanguage.choice(broadcast));equal(before+1,WeeklyWidget.renders);equal(0,Repo.operations);
         receiver.onReceive(broadcast,new Intent("android.intent.action.BOOT_COMPLETED"));
         equal(1,Repo.operations);equal(1,Repo.reconciles);equal(1,Scheduler.ensures);equal(1,BroadcastReceiver.asyncCalls);equal(1,BroadcastReceiver.finishes);
+        WeeklyWidget.fail=true;before=WeeklyWidget.renders;
+        AppLanguage.apply(broadcast,"en");equal("en",AppLanguage.choice(broadcast));equal(Locale.ENGLISH,Texts.locale(broadcast));equal(before+1,WeeklyWidget.renders);
+        receiver.onReceive(broadcast,new Intent(Intent.ACTION_LOCALE_CHANGED));equal(before+2,WeeklyWidget.renders);
+        receiver.onReceive(broadcast,new Intent("android.intent.action.BOOT_COMPLETED"));
+        equal(2,Repo.operations);equal(2,Repo.reconciles);equal(2,Scheduler.ensures);equal(2,BroadcastReceiver.asyncCalls);equal(2,BroadcastReceiver.finishes);equal(before+3,WeeklyWidget.renders);
+        WeeklyWidget.fail=false;
+        Scheduler.fail=true;before=WeeklyWidget.renders;boolean escaped=false;
+        try{receiver.onReceive(broadcast,new Intent("android.intent.action.BOOT_COMPLETED"));}catch(RuntimeException error){escaped=true;}
+        equal(false,escaped);equal(before+1,WeeklyWidget.renders);equal(3,Scheduler.ensures);equal(3,BroadcastReceiver.finishes);
+        WeeklyWidget.fail=true;escaped=false;
+        try{receiver.onReceive(broadcast,new Intent("android.intent.action.BOOT_COMPLETED"));}catch(RuntimeException error){escaped=true;}
+        equal(false,escaped);equal(before+2,WeeklyWidget.renders);equal(4,Scheduler.ensures);equal(4,BroadcastReceiver.finishes);
+        equal(4,Repo.operations);equal(4,Repo.reconciles);equal(0,Store.errors);
+        WeeklyMeterApplication application=new WeeklyMeterApplication();application.base=broadcast;escaped=false;
+        try{application.onCreate();}catch(RuntimeException error){escaped=true;}
+        equal(false,escaped);equal(5,Repo.operations);equal(5,Repo.reconciles);equal(5,Scheduler.ensures);equal(before+3,WeeklyWidget.renders);
+        escaped=false;try{application.onConfigurationChanged(new Configuration());}catch(RuntimeException error){escaped=true;}
+        equal(false,escaped);equal(5,Repo.operations);equal(5,Scheduler.ensures);equal(before+4,WeeklyWidget.renders);
+        WeeklyWidget.fail=false;Scheduler.fail=false;
         System.out.println("AppLanguageTests: "+checks+" checks passed");
     }
     private static final class Prefs implements SharedPreferences {

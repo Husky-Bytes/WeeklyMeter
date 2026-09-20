@@ -3,6 +3,7 @@ package dev.yerin.weeklymeter;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.SizeF;
@@ -16,7 +17,7 @@ public final class WidgetPublishTests {
  private static final AppWidgetManager manager=AppWidgetManager.INSTANCE;
  private static Context context;
  private static void check(boolean value,String message){checks++;if(!value)failures.add(message);}
- private static void reset(){manager.reset();context=new Context();Build.VERSION.SDK_INT=35;Texts.current=Locale.ENGLISH;WidgetRenderer.beforeRender=u->{};Scheduler.requests=0;manager.ids=new int[]{10,20};}
+ private static void reset(){manager.reset();context=new Context();Build.VERSION.SDK_INT=35;Texts.current=Locale.ENGLISH;WidgetRenderer.beforeRender=u->{};Scheduler.requests=Scheduler.ensures=0;Scheduler.fail=false;manager.ids=new int[]{10,20};}
  private static void save(double used,long at){Store.save(context,Collections.singletonList(new Usage("codex","base",used,2000000000L,at)));}
  private static Bundle sizes(SizeF... sizes){Bundle options=new Bundle();options.putParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES,new ArrayList<>(Arrays.asList(sizes)));return options;}
  private static List<RemoteViews> leaves(RemoteViews views){if(views==null)return Collections.emptyList();if(views.variants!=null)return new ArrayList<>(views.variants.values());if(views.landscape!=null)return Arrays.asList(views.landscape,views.portrait);return Collections.singletonList(views);}
@@ -60,6 +61,31 @@ public final class WidgetPublishTests {
   try{WeeklyWidget.renderAll(context);}catch(RuntimeException error){caught=error;}
   check(caught==shared,"same exception instance is not self-suppressed");verify(30,"52%",7000,2);
  }
+ private static void entryPointFailures(){
+  reset();save(49,8000);manager.publishFailures.put(10,new IllegalArgumentException("synthetic host unavailable"));
+  WidgetStyle style=WidgetStyle.defaults();style.overallOpacity=61;
+  WeeklyWidget.saveStyle(context,style);
+  check(WeeklyWidget.style(context).overallOpacity==61,"style remains saved despite publication failure");
+  verify(20,"51%",8000,2);
+  int ensures=Scheduler.ensures;new WeeklyWidget().onUpdate(context,manager,manager.ids);
+  check(Scheduler.ensures==ensures+1,"failed host publication cannot skip schedule reconciliation");
+  new WeeklyWidget().onAppWidgetOptionsChanged(context,manager,10,new Bundle());
+  check(true,"resize callback isolates host publication failure");
+  new WeeklyWidget().onReceive(context,new Intent(context,WeeklyWidget.class).setAction(WeeklyWidget.REFRESH));
+  check(Scheduler.requests==1,"legacy refresh action still requests refresh despite host failure");
+  verify(20,"51%",8000,2);
+ }
+ private static void scheduleFailures(){
+  reset();save(50,8500);Scheduler.fail=true;boolean escaped=false;
+  try{new WeeklyWidget().onUpdate(context,manager,manager.ids);}catch(RuntimeException error){escaped=true;}
+  check(!escaped,"provider update isolates scheduler failure");check(Scheduler.ensures==1,"provider still attempts schedule repair once");
+  verify(10,"50%",8500,2);verify(20,"50%",8500,2);
+  escaped=false;try{new WeeklyWidget().onDisabled(context);}catch(RuntimeException error){escaped=true;}
+  check(!escaped&&Scheduler.ensures==2,"provider disable isolates scheduler failure");check(Scheduler.requests==0,"scheduler failure does not create an extra manual request");
+  manager.publishFailures.put(10,new IllegalArgumentException("synthetic host failure"));escaped=false;
+  try{new WeeklyWidget().onUpdate(context,manager,manager.ids);}catch(RuntimeException error){escaped=true;}
+  check(!escaped&&Scheduler.ensures==3,"combined host and schedule failures remain isolated");verify(20,"50%",8500,2);
+ }
  private static Thread daemon(String name,Runnable action){Thread thread=new Thread(action,name);thread.setDaemon(true);return thread;}
  private static void await(CountDownLatch latch){try{if(!latch.await(3,TimeUnit.SECONDS))throw new AssertionError("test coordination timeout");}catch(InterruptedException error){Thread.currentThread().interrupt();throw new AssertionError(error);}}
  private static void concurrentFreshness()throws Exception {
@@ -83,8 +109,28 @@ public final class WidgetPublishTests {
    }
   });language.start();check(complete.await(3,TimeUnit.SECONDS),"language apply cannot deadlock with cold widget render");language.join(500);check(errors.isEmpty(),"language and widget publication succeed");
  }
+ private static void renderingReuse(){
+  reset();save(25,11000);java.util.concurrent.atomic.AtomicInteger calls=new java.util.concurrent.atomic.AtomicInteger();WidgetRenderer.beforeRender=u->calls.incrementAndGet();
+  manager.options.put(10,sizes(new SizeF(64,64),new SizeF(64,64),new SizeF(128,64)));manager.options.put(20,manager.options.get(10));
+  WeeklyWidget.renderAll(context);check(calls.get()==2,"duplicate sizes and identical widget dimensions render only two unique images, not six");
+  List<RemoteViews> first=leaves(manager.published.get(10)),second=leaves(manager.published.get(20));
+  check(first.get(0).bitmap==second.get(0).bitmap&&first.get(1).bitmap==second.get(1).bitmap,"same-publication bitmap objects shared across IDs");
+  check(first.get(0).click.intent.getIntExtra(WidgetRefreshService.EXTRA_APP_WIDGET_ID,-1)==10&&second.get(0).click.intent.getIntExtra(WidgetRefreshService.EXTRA_APP_WIDGET_ID,-1)==20,"shared images retain distinct click identity");
+  save(50,12000);WeeklyWidget.renderAll(context);check(calls.get()==4&&leaves(manager.published.get(10)).get(0).bitmap!=first.get(0).bitmap,"bitmap cache does not survive a publication or restore old usage");
+  reset();save(20,13000);calls.set(0);WidgetRenderer.beforeRender=u->calls.incrementAndGet();Build.VERSION.SDK_INT=30;
+  WeeklyWidget.renderAll(context);check(calls.get()==1,"identical legacy orientation dimensions share one render across IDs");
+  WidgetStyle style=WeeklyWidget.style(context);WeeklyWidget.saveStyle(context,style);int before=calls.get();
+  WeeklyWidget.saveStyle(context,style.copy());check(calls.get()==before,"identical normalized style save does not republish widgets");
+  String original=WidgetAppearance.signature(style);style.feedbackEnabled=!style.feedbackEnabled;
+  check(!WidgetAppearance.signature(style).equals(original),"signature includes feedback enabled state");WeeklyWidget.saveStyle(context,style);check(calls.get()>before,"feedback-only edit is not lost by no-op detection");
+  original=WidgetAppearance.signature(style);style.feedbackDurationMs=2200;check(!WidgetAppearance.signature(style).equals(original),"signature includes independent feedback duration");
+  reset();save(20,14000);RefreshFeedback.visible=true;int individual=RefreshFeedback.individualPublications;
+  manager.publishFailures.put(20,new IllegalStateException("second host rejects"));try{WeeklyWidget.renderAll(context);}catch(RuntimeException expected){}
+  check(RefreshFeedback.individualPublications==individual+1,"successful first ID records potential badge despite later host failure");
+  WeeklyWidget.render(context,manager,10);check(RefreshFeedback.individualPublications==individual+2,"resize-only publication records potential badge");RefreshFeedback.visible=false;
+ }
  public static void main(String[] args)throws Exception {
-  freshAllSizes();legacyAndInvalidSizes();failureIsolation();concurrentFreshness();localeLockOrdering();
+  freshAllSizes();legacyAndInvalidSizes();failureIsolation();entryPointFailures();scheduleFailures();concurrentFreshness();localeLockOrdering();renderingReuse();
   if(!failures.isEmpty()){for(String failure:failures)System.err.println("FAIL: "+failure);throw new AssertionError(failures.size()+" of "+checks+" widget publication checks failed");}
   System.out.println("Widget publication tests: "+checks+" checks passed (real provider/cache; synthetic Android host/renderer)");
  }

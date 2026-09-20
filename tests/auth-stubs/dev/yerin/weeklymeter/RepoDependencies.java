@@ -6,9 +6,10 @@ import java.util.*;
 /** In-memory storage/scheduler doubles. Tests exercise real Repo and Api code. */
 final class Vault {
     static Map<String,Object> state=new LinkedHashMap<>();
-    static int writeFailuresRemaining,writeAttempts;
+    static int writeFailuresRemaining,writeAttempts,readAttempts;
+    static Runnable onRead;
     Vault(Context context){}
-    Map<String,Object> read(){return copy(state);}
+    Map<String,Object> read(){readAttempts++;Map<String,Object> result=copy(state);if(onRead!=null)onRead.run();return result;}
     void write(Map<String,Object> value)throws java.io.IOException{
         writeAttempts++;
         if(writeFailuresRemaining>0){writeFailuresRemaining--;throw new java.io.IOException("Fixture storage failure");}
@@ -20,6 +21,7 @@ final class Vault {
 final class Store {
     static final Preferences values=new Preferences();
     static Runnable onSave;
+    static boolean commitSucceeds=true;
     static Preferences prefs(Context context){return values;}
     static boolean connected(Context context){return values.getBoolean("connected",false);}
     static void save(Context context,List<Usage> list){values.data.put("saved_usage",list);if(onSave!=null)onSave.run();}
@@ -40,6 +42,7 @@ final class Store {
         Editor remove(String key){prefs.data.remove(key);return this;}
         Editor clear(){prefs.data.clear();return this;}
         void apply(){}
+        boolean commit(){return Store.commitSucceeds;}
     }
 }
 final class Scheduler {static void cancel(Context context){}}

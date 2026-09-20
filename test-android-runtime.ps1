@@ -19,7 +19,15 @@ $runtimeAndroid=Join-Path $Sdk 'platforms/android-36/android.jar'
 $runtimeAdb=Join-Path $Sdk 'platform-tools/adb.exe'
 $env:JAVA_HOME=$Jdk
 $env:PATH="$Jdk\bin;$env:PATH"
-function Runtime-Native([string]$Exe,[string[]]$Arguments){& $Exe @Arguments;if($LASTEXITCODE -ne 0){throw "Runtime test command failed: $Exe"}}
+$runtimeMetadata=(& "$runtimeTools/aapt2.exe" dump badging "$runtimeAppBuild/dist/WeeklyMeter.apk" | Out-String)
+if($LASTEXITCODE -ne 0 -or $runtimeMetadata -notmatch "package: name='dev.yerin.weeklymeter' versionCode='(\d+)' versionName='([^']+)'"){throw 'Could not read target APK version metadata.'}
+$runtimeVersionCode=$Matches[1];$runtimeVersionName=$Matches[2]
+function Runtime-Native([string]$Exe,[string[]]$Arguments){
+    $runtimeLines=@(& $Exe @Arguments 2>&1);$runtimeExit=$LASTEXITCODE
+    $runtimeLines | ForEach-Object { "$_" }
+    # JDK 21 can return zero after a Windows ZIP-filesystem cleanup exception.
+    if($runtimeExit -ne 0 -or ($runtimeLines -join "`n") -match 'An exception has occurred in the compiler'){throw "Runtime test command failed: $Exe"}
+}
 if(Test-Path -LiteralPath $runtimeOutput){throw 'Use a new runtime test output directory.'}
 New-Item -ItemType Directory -Path $runtimeOutput | Out-Null
 foreach($runtimePart in @('classes','dex')){New-Item -ItemType Directory -Path (Join-Path $runtimeOutput $runtimePart) | Out-Null}
@@ -42,7 +50,7 @@ if($Run){
     $runtimePackage=(& $runtimeAdb -s $Serial shell pm path dev.yerin.weeklymeter | Out-String).Trim()
     if($LASTEXITCODE -ne 0 -or -not $runtimePackage.StartsWith('package:')){throw 'Install the release APK on isolated emulator-5580 first.'}
     Runtime-Native $runtimeAdb @('-s',$Serial,'install','-r',"$runtimeOutput/WeeklyMeter-runtime-tests.apk")
-    $runtimeResult=& $runtimeAdb -s $Serial shell am instrument -w dev.yerin.weeklymeter.runtime/dev.yerin.weeklymeter.RuntimeSmokeInstrumentation 2>&1
+    $runtimeResult=& $runtimeAdb -s $Serial shell am instrument -w -e expectedVersionName $runtimeVersionName -e expectedVersionCode $runtimeVersionCode dev.yerin.weeklymeter.runtime/dev.yerin.weeklymeter.RuntimeSmokeInstrumentation 2>&1
     $runtimeResult | Tee-Object -FilePath "$runtimeOutput/instrumentation-result.txt"
     if($LASTEXITCODE -ne 0 -or ($runtimeResult -join "`n") -notmatch 'RUNTIME_SMOKE_PASS checks='){throw 'Android runtime smoke tests failed; inspect the generated instrumentation result.'}
 }

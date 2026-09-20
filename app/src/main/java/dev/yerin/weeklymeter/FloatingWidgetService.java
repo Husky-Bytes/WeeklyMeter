@@ -14,6 +14,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.graphics.Insets;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
@@ -41,18 +42,23 @@ public final class FloatingWidgetService extends Service {
     public static final String ACTION_HIDE="dev.yerin.weeklymeter.HIDE_FLOATING_WIDGET";
     private static final String CHANNEL="floating_widget",X="position_x_fraction",Y="position_y_fraction";
     private static final int NOTIFICATION=22004;
+    private static final long RESUME_RETRY_MS=500,RESUME_TIMEOUT_MS=15_000;
     private static volatile FloatingWidgetService instance;
     private static volatile boolean showing,active;
     private final Handler main=new Handler(Looper.getMainLooper());
     private final Runnable redraw=this::paint;
+    private final Runnable invalidateContent=this::markContentDirty;
+    private final Runnable displayExpiry=()->{contentDirty=true;paint();};
+    private final Runnable resume=this::resumeWindow;
     private final Runnable longPress=this::handleLongPress;
-    private final SharedPreferences.OnSharedPreferenceChangeListener changed=(prefs,key)->queuePaint();
+    private final SharedPreferences.OnSharedPreferenceChangeListener changed=this::preferenceChanged;
     private final AppOpsManager.OnOpChangedListener permissionChanged=(operation,packageName)->main.post(()->{if(!allowed(this))close();});
     private final BroadcastReceiver screen=new BroadcastReceiver(){
         @Override public void onReceive(Context context,Intent intent){
             String action=intent.getAction();
-            if(Intent.ACTION_SCREEN_OFF.equals(action)){screenOff=true;detach();}
-            else if(Intent.ACTION_SCREEN_ON.equals(action)||Intent.ACTION_USER_PRESENT.equals(action)){screenOff=false;queuePaint();}
+            if(Intent.ACTION_SCREEN_OFF.equals(action)){screenOff=true;cancelResume();main.removeCallbacks(redraw);detach();}
+            else if(Intent.ACTION_SCREEN_ON.equals(action)||Intent.ACTION_USER_PRESENT.equals(action)){screenOff=false;beginResume();queuePaint();}
+            else if(Intent.ACTION_TIME_CHANGED.equals(action)||Intent.ACTION_TIMEZONE_CHANGED.equals(action))queuePaint();
         }
     };
     private WindowManager window;
@@ -64,12 +70,22 @@ public final class FloatingWidgetService extends Service {
     private SharedPreferences[] watched;
     private AppOpsManager appOps;
     private boolean attached,foreground,receiverRegistered,screenOff,closing,destroyed;
+    private boolean contentDirty=true;
+    private WidgetRenderer.Result cachedRender;
+    private Usage cachedUsage;
+    private int renderedWidth,renderedHeight;
+    private float renderedDensity;
+    private long renderedAt,renderedUntil=Long.MAX_VALUE;
+    private String renderedFeedback="none";
+    private long resumeUntil;
     private int downWindowX,downWindowY;
     private float downTouchX,downTouchY;
 
     public static boolean isShowing(){return showing;}
     /** A user-started session stays active while its window is hidden on the lock screen. */
     public static boolean isActive(){return active;}
+    private static void setActive(boolean value){if(active!=value){active=value;AppSignals.changed();}}
+    private static void setShowing(boolean value){if(showing!=value){showing=value;AppSignals.changed();}}
     public static void show(Context context){
         Context c=context.getApplicationContext();
         if(!allowed(c)){message(c,"앱에서 다른 앱 위에 표시를 허용해 주세요.","Allow display over other apps in WeeklyMeter.");return;}
@@ -88,6 +104,7 @@ public final class FloatingWidgetService extends Service {
         watched=new SharedPreferences[]{Store.prefs(this),getSharedPreferences("floating_style",MODE_PRIVATE),FloatingPreferences.prefs(this),getSharedPreferences("language_settings",MODE_PRIVATE)};
         for(SharedPreferences prefs:watched)prefs.registerOnSharedPreferenceChangeListener(changed);
         IntentFilter filter=new IntentFilter();filter.addAction(Intent.ACTION_SCREEN_OFF);filter.addAction(Intent.ACTION_SCREEN_ON);filter.addAction(Intent.ACTION_USER_PRESENT);
+        filter.addAction(Intent.ACTION_TIME_CHANGED);filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
         try{if(Build.VERSION.SDK_INT>=33)registerReceiver(screen,filter,Context.RECEIVER_NOT_EXPORTED);else registerReceiver(screen,filter);receiverRegistered=true;}
         catch(RuntimeException unavailable){close();}
         try{appOps=getSystemService(AppOpsManager.class);if(appOps!=null)appOps.startWatchingMode(AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,getPackageName(),permissionChanged);}
@@ -96,10 +113,12 @@ public final class FloatingWidgetService extends Service {
     @Override public IBinder onBind(Intent intent){return null;}
     @Override public int onStartCommand(Intent intent,int flags,int startId){
         if(intent!=null&&ACTION_HIDE.equals(intent.getAction())){close();return START_NOT_STICKY;}
-        if(intent==null||!ACTION_SHOW.equals(intent.getAction())||closing||!allowed(this)){close();return START_NOT_STICKY;}
-        try{enterForeground();paint();}
+        // A null intent is Android restoring a previously started sticky session.
+        // stopService/stopSelf ends that session; no boot or saved auto-start flag.
+        if((intent!=null&&!ACTION_SHOW.equals(intent.getAction()))||closing||!allowed(this)){close();return START_NOT_STICKY;}
+        try{enterForeground();screenOff=false;beginResume();paint();}
         catch(RuntimeException blocked){message(this,"플로팅 위젯을 표시하지 못했습니다.","Could not display the floating widget.");close();}
-        return START_NOT_STICKY;
+        return closing?START_NOT_STICKY:START_STICKY;
     }
     private void enterForeground(){
         if(foreground)return;
@@ -108,7 +127,7 @@ public final class FloatingWidgetService extends Service {
         manager.createNotificationChannel(new NotificationChannel(CHANNEL,Texts.t(this,"플로팅 위젯","Floating widget"),NotificationManager.IMPORTANCE_LOW));
         if(Build.VERSION.SDK_INT>=34)startForeground(NOTIFICATION,notification(),ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         else startForeground(NOTIFICATION,notification());
-        foreground=true;active=true;ensureSchedule();
+        foreground=true;setActive(true);ensureSchedule();
     }
     private Notification notification(){
         int flags=PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE;
@@ -120,7 +139,43 @@ public final class FloatingWidgetService extends Service {
             .setContentIntent(settings).addAction(new Notification.Action.Builder(null,Texts.t(this,"닫기","Close"),dismiss).build())
             .setOngoing(true).setOnlyAlertOnce(true).setCategory(Notification.CATEGORY_SERVICE).setVisibility(Notification.VISIBILITY_PRIVATE).build();
     }
-    private void queuePaint(){if(!destroyed&&!closing){main.removeCallbacks(redraw);main.post(redraw);}}
+    private void preferenceChanged(SharedPreferences prefs,String key){
+        if(watched==null)return;
+        if(key==null){queuePaint();return;}
+        if(prefs==watched[0]){
+            if("meters".equals(key)||"selected".equals(key)||"connected".equals(key)||"error".equals(key)||"requested".equals(key))queuePaint();
+        }else if(prefs==watched[2]){
+            // Drag already moved the input window; persisting its position does not
+            // change pixels. Automatic-refresh settings likewise do not draw here.
+            if(FloatingPreferences.WIDTH.equals(key)||FloatingPreferences.HEIGHT.equals(key))queueGeometry();
+        }else queuePaint();
+    }
+    private void markContentDirty(){if(!destroyed&&!closing){contentDirty=true;queueGeometry();}}
+    private void queuePaint(){
+        // A worker can publish newer usage while the main thread draws an older
+        // snapshot. Serialize invalidation after that draw so its cleanup cannot
+        // clear the new dirty flag or remove the pending content update.
+        main.removeCallbacks(invalidateContent);main.post(invalidateContent);
+    }
+    private void queueGeometry(){if(!destroyed&&!closing){main.removeCallbacks(redraw);main.post(redraw);}}
+    private void beginResume(){
+        if(destroyed||closing||!foreground)return;
+        resumeUntil=SystemClock.elapsedRealtime()+RESUME_TIMEOUT_MS;scheduleResume();
+    }
+    private boolean scheduleResume(){
+        main.removeCallbacks(resume);
+        long remaining=resumeUntil-SystemClock.elapsedRealtime();
+        if(destroyed||closing||!foreground||screenOff||remaining<=0)return false;
+        main.postDelayed(resume,Math.min(RESUME_RETRY_MS,remaining));return true;
+    }
+    private void cancelResume(){main.removeCallbacks(resume);resumeUntil=0;}
+    private void resumeWindow(){
+        if(destroyed||closing||!foreground||screenOff||resumeUntil==0)return;
+        // Wake/unlock broadcasts can arrive before power/keyguard/window state settles.
+        // Recheck locally for a bounded time; screen-off cancels retries. No usage fetch.
+        paint();
+        if(!attached&&!scheduleResume())cancelResume();
+    }
     private boolean privateScreen(){
         if(screenOff)return true;
         try{KeyguardManager keyguard=getSystemService(KeyguardManager.class);PowerManager power=getSystemService(PowerManager.class);
@@ -147,24 +202,65 @@ public final class FloatingWidgetService extends Service {
                 image.setOnClickListener(view->refresh());image.setOnLongClickListener(view->{close();return true;});image.setOnTouchListener(this::touch);
             }
             RefreshFeedback.Snapshot feedback=RefreshFeedback.snapshot(this,true);
-            WidgetRenderer.Result rendered=WidgetRenderer.render(this,Store.selected(this),FloatingPreferences.style(this),frame.width/density,frame.height/density,feedback.visible?feedback.state:"none");
+            String feedbackState=feedback.visible?feedback.state:"none";
+            long now=System.currentTimeMillis();
+            boolean changed=contentDirty||cachedRender==null||now<renderedAt||now>=renderedUntil||renderedWidth!=frame.width||renderedHeight!=frame.height||renderedDensity!=density||!renderedFeedback.equals(feedbackState);
+            if(changed){
+                cachedUsage=Store.selected(this);
+                cachedRender=WidgetRenderer.render(this,cachedUsage,FloatingPreferences.style(this),frame.width/density,frame.height/density,feedbackState);
+                renderedWidth=frame.width;renderedHeight=frame.height;renderedDensity=density;renderedFeedback=feedbackState;contentDirty=false;
+                renderedAt=now;long delay=cachedUsage==null?-1:DisplayExpiry.nextDelay(now,cachedUsage.fetchedAt,cachedUsage.resetsAt);
+                renderedUntil=delay>0&&now<=Long.MAX_VALUE-delay?now+delay:Long.MAX_VALUE;
+            }
+            WidgetRenderer.Result rendered=cachedRender;
+            if(changed&&!hasVisiblePixels(rendered.bitmap)){
+                // Pixel transparency must also remove the input window. A transparent
+                // Bitmap alone still intercepts touches in WindowManager's rectangle.
+                cancelResume();main.removeCallbacks(redraw);detach();
+                // This fresh bitmap was never handed to ImageView or its renderer.
+                rendered.bitmap.recycle();cachedRender=null;RefreshFeedback.published(true,feedback);return;
+            }
             // ImageView releases the previous bitmap reference. Do not recycle a bitmap
             // while Android's hardware renderer can still be drawing the prior frame.
-            image.setImageBitmap(rendered.bitmap);
-            image.setContentDescription(rendered.accessibility+". "+Texts.t(this,"누르면 조회, 끌어서 이동, 길게 누르면 닫기","Tap to refresh, drag to move, hold to close"));
+            if(changed||!attached){
+                image.setImageBitmap(rendered.bitmap);
+                image.setContentDescription(rendered.accessibility+". "+Texts.t(this,"누르면 조회, 끌어서 이동, 길게 누르면 닫기","Tap to refresh, drag to move, hold to close"));
+            }
             if(layout==null){
                 // Usage-only overlays must not block screenshots of the app underneath.
-                // The account-connection Activity retains its own secure-window policy.
                 layout=new WindowManager.LayoutParams(frame.width,frame.height,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT);
                 layout.gravity=Gravity.TOP|Gravity.LEFT;
                 if(Build.VERSION.SDK_INT>=28)layout.layoutInDisplayCutoutMode=WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             }
             place();
-            if(!attached){window.addView(image,layout);attached=true;showing=true;}else window.updateViewLayout(image,layout);
+            if(!attached){window.addView(image,layout);attached=true;setShowing(true);}else window.updateViewLayout(image,layout);
+            cancelResume();
             main.removeCallbacks(redraw);
-            if(feedback.visible)main.postDelayed(redraw,Math.max(1,feedback.expiresAt-SystemClock.elapsedRealtime()+1));
-        }catch(RuntimeException failed){close();}
+            RefreshFeedback.published(true,feedback);
+            scheduleDisplayExpiry();
+        }catch(RuntimeException failed){
+            detach();
+            if(resumeUntil==0)beginResume();
+            if(!scheduleResume()){
+                message(this,"플로팅 위젯을 다시 표시하지 못했습니다. 앱에서 다시 열어 주세요.","Could not restore the floating widget. Reopen it in the app.");close();
+            }
+        }
+    }
+    private void scheduleDisplayExpiry(){
+        main.removeCallbacks(displayExpiry);
+        if(!attached||renderedUntil==Long.MAX_VALUE)return;
+        main.postDelayed(displayExpiry,Math.max(1,renderedUntil-System.currentTimeMillis()));
+    }
+    private static boolean hasVisiblePixels(Bitmap bitmap){
+        // Inspect the bounded renderer output, not a second copy of style/date/logo
+        // rules. Reuse one row and stop at the first nonzero alpha, including alpha 1.
+        int width=bitmap.getWidth();int[] row=new int[width];
+        for(int y=0;y<bitmap.getHeight();y++){
+            bitmap.getPixels(row,0,width,0,y,width,1);
+            for(int pixel:row)if((pixel>>>24)!=0)return true;
+        }
+        return false;
     }
     private float position(String key,float fallback){try{return FloatingPreferences.prefs(this).getFloat(key,fallback);}catch(ClassCastException invalid){return fallback;}}
     private Rect screenBounds(){
@@ -221,25 +317,26 @@ public final class FloatingWidgetService extends Service {
         catch(RuntimeException blocked){message(this,"조회를 시작하지 못했습니다. 앱에서 확인해 주세요.","Could not start refreshing. Check the app.");}
     }
     private void detach(){
+        main.removeCallbacks(displayExpiry);
         cancelTouch();
         if(attached&&window!=null&&image!=null){try{window.removeViewImmediate(image);}catch(RuntimeException ignored){}}
-        attached=false;showing=false;
+        attached=false;setShowing(false);
         if(image!=null)image.setImageDrawable(null);
     }
     private void ensureSchedule(){try{Scheduler.ensure(this);}catch(RuntimeException unavailable){}}
     private void close(){
-        if(closing)return;closing=true;active=false;main.removeCallbacksAndMessages(null);detach();
+        if(closing)return;closing=true;setActive(false);cancelResume();main.removeCallbacksAndMessages(null);detach();cachedRender=null;cachedUsage=null;
         if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;}
         ensureSchedule();stopSelf();
     }
     @Override public void onConfigurationChanged(Configuration configuration){super.onConfigurationChanged(configuration);queuePaint();}
     @Override public void onDestroy(){
-        destroyed=true;if(instance==this)active=false;main.removeCallbacksAndMessages(null);detach();
+        destroyed=true;if(instance==this)setActive(false);cancelResume();main.removeCallbacksAndMessages(null);detach();
         if(receiverRegistered){try{unregisterReceiver(screen);}catch(RuntimeException ignored){}receiverRegistered=false;}
         if(appOps!=null){try{appOps.stopWatchingMode(permissionChanged);}catch(RuntimeException ignored){}appOps=null;}
         if(watched!=null){for(SharedPreferences prefs:watched)prefs.unregisterOnSharedPreferenceChangeListener(changed);watched=null;}
-        image=null;layout=null;frame=null;window=null;
-        if(instance==this){instance=null;showing=false;}
+        image=null;layout=null;frame=null;window=null;cachedRender=null;cachedUsage=null;
+        if(instance==this){instance=null;setShowing(false);}
         if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;}
         ensureSchedule();
         super.onDestroy();

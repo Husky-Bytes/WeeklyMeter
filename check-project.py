@@ -54,15 +54,16 @@ assert 'new Repo(' not in status_ui and '.sync(' not in status_ui and 'Scheduler
 assert 'BackgroundAccess.read(this)' in status_ui and 'AutoRefreshDiagnostics.read(this)' in status_ui
 assert 'BackgroundAccess.batterySettings(this)' in status_ui and 'Settings.ACTION_APPLICATION_DETAILS_SETTINGS' in status_ui
 assert 'ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' not in main_source, 'battery exceptions require user-controlled system settings'
-interval_ui=main_source[main_source.index('void refreshInterval()'):main_source.index('void floatingOptions()')]
-assert 'RefreshInterval.parse(' in interval_ui and 'Scheduler.ensure(' in interval_ui
+interval_ui=main_source[main_source.index('void refreshInterval()'):main_source.index('void requestFloating()')]
+assert 'RefreshInterval.parse(' in interval_ui and 'ensureSchedule()' in interval_ui
 assert 'new Repo(' not in interval_ui and '.sync(' not in interval_ui, 'changing interval must not fetch usage'
 assert 'button(t("홈 위젯 꾸미기","Customize home widget"),true,()->openWidgetStyle(false))' in main_source
 assert 'button(t("플로팅 위젯 꾸미기","Customize floating widget"),true,()->openWidgetStyle(true))' in main_source
 style_entry=main_source[main_source.index('void openWidgetStyle('):main_source.index('void refreshInterval()')]
 assert 'WidgetStyleSettingsActivity.EXTRA_FLOATING,floating' in style_entry and 'new Repo(' not in style_entry
-floating_menu=main_source[main_source.index('void floatingOptions()'):main_source.index('void requestFloating()')]
-assert 'setNeutralButton' not in floating_menu, 'floating customization is a top-level action'
+assert 'void floatingOptions()' not in main_source, 'floating controls do not require a nested menu'
+assert 'Close floating widget' in main_source and 'FloatingWidgetService.hide(this);render();' in main_source
+assert 'FLAG_SECURE' not in main_source, 'normal usage/settings screen permits capture'
 widget=ET.parse(res/'xml/weekly_widget_info.xml').getroot()
 assert widget.attrib[a+'targetCellWidth']=='1' and widget.attrib[a+'targetCellHeight']=='1'
 assert widget.attrib[a+'resizeMode']=='horizontal|vertical'

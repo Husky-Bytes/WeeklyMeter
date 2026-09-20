@@ -35,10 +35,17 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
     private final AtomicBoolean finished=new AtomicBoolean();
     private Context target;
     private Activity styleActivity,intervalActivity,navigationActivity;
+    private String expectedVersionName;
+    private long expectedVersionCode;
     private interface Task {void run() throws Exception;}
     private interface Value<T> {T get() throws Exception;}
     private interface Condition {boolean get() throws Exception;}
-    @Override public void onCreate(Bundle arguments){super.onCreate(arguments);start();}
+    @Override public void onCreate(Bundle arguments){
+        super.onCreate(arguments);
+        expectedVersionName=arguments==null?"":arguments.getString("expectedVersionName","");
+        try{expectedVersionCode=Long.parseLong(arguments==null?"0":arguments.getString("expectedVersionCode","0"));}catch(NumberFormatException invalid){expectedVersionCode=0;}
+        start();
+    }
     @Override public void onStart(){
         Thread deadline=new Thread(()->{
             try{Thread.sleep(150_000);}catch(InterruptedException complete){return;}
@@ -61,8 +68,9 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
     private void complete(int code,Bundle result){if(finished.compareAndSet(false,true))finish(code,result);}
     private void test() throws Exception {
         check(Settings.canDrawOverlays(target),"Overlay permission must be granted by test setup");
-        check("0.6.3".equals(target.getPackageManager().getPackageInfo(target.getPackageName(),0).versionName),"Target APK version is 0.6.3");
-        check(target.getPackageManager().getPackageInfo(target.getPackageName(),0).getLongVersionCode()==13,"Target APK version code is 13");
+        check(!expectedVersionName.isEmpty()&&expectedVersionCode>0,"Expected version metadata supplied from the built APK");
+        check(expectedVersionName.equals(target.getPackageManager().getPackageInfo(target.getPackageName(),0).versionName),"Installed target matches built APK version name");
+        check(target.getPackageManager().getPackageInfo(target.getPackageName(),0).getLongVersionCode()==expectedVersionCode,"Installed target matches built APK version code");
         check(WidgetStyle.defaults().overallOpacity==100,"Overall opacity defaults to the original full visibility");
         bitmapOpacity();
         main(()->{
@@ -140,14 +148,15 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
     private Activity mainStyleEntries()throws Exception{
         navigationActivity=startActivitySync(new Intent(target,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));waitForIdleSync();
         await(()->mainValue(()->!(Boolean)field(navigationActivity,"busy")),3000,"Main screen finishes local-only account-state check");
-        check(mainValue(()->(navigationActivity.getWindow().getAttributes().flags&WindowManager.LayoutParams.FLAG_SECURE)!=0),"Main account/sign-in Activity retains its secure-window protection");
+        mainDisplayUpdates();
+        check(mainValue(()->(navigationActivity.getWindow().getAttributes().flags&WindowManager.LayoutParams.FLAG_SECURE)==0),"Normal usage/settings screen permits capture without exposing credentials");
         Button[] entries=mainValue(()->new Button[]{styleEntry(false),styleEntry(true)});
         check(mainValue(()->entries[0].getParent()==entries[1].getParent()),"Home and floating style entries share the same main-screen parent");
         check(mainValue(()->((ViewGroup)entries[0].getParent()).indexOfChild(entries[1])==((ViewGroup)entries[0].getParent()).indexOfChild(entries[0])+1),"Home and floating style entries are adjacent peers");
         check(mainValue(()->entries[0].getCurrentTextColor()==entries[1].getCurrentTextColor()&&entries[0].getTextSize()==entries[1].getTextSize()&&entries[0].getMinHeight()==entries[1].getMinHeight()),"Both style entries have matching text and button dimensions");
         check(mainValue(()->backgroundColor(entries[0])==backgroundColor(entries[1])&&backgroundColor(entries[0])==(Integer)field(null,MainActivity.class,"ACCENT")),"Both style entries use the same primary background color");
         main(()->captureWindow(navigationActivity,"main-customization.png"));
-        styleActivity=openStyleEntry(false);
+        styleActivity=openStyleEntry(false);waitForIdleSync();editorOptimizationChecks();
         check(mainValue(()->!(Boolean)field(styleActivity,"floating")),"One home-style button click opens the home editor directly");
         check(AppWidgetManager.getInstance(target).getAppWidgetIds(new ComponentName(target,WeeklyWidget.class)).length==0,"Isolated emulator has no installed home widget for estimate fixture");
         check(mainValue(()->{
@@ -164,6 +173,39 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
         Button button=findExactButton(navigationActivity.getWindow().getDecorView(),floating?"플로팅 위젯 꾸미기":"홈 위젯 꾸미기",floating?"Customize floating widget":"Customize home widget");
         if(button==null)throw new AssertionError("Main-screen style entry was not found: "+floating);return button;
     }
+    private void mainDisplayUpdates()throws Exception{
+        Object percent=mainValue(()->field(navigationActivity,"heroPercent"));Button unchanged=mainValue(()->styleEntry(false));
+        main(()->Store.save(target,Collections.singletonList(sample(42))));
+        await(()->mainValue(()->"58%".equals(((android.widget.TextView)field(navigationActivity,"heroPercent")).getText().toString())),3000,"Visible main labels follow committed usage without reopening Activity");
+        check(mainValue(()->field(navigationActivity,"heroPercent")==percent&&styleEntry(false)==unchanged),"Usage event changes labels without rebuilding settings controls");
+        check(mainValue(()->((android.widget.TextView)field(navigationActivity,"heroLast")).getText().toString().equals(Display.last(target,Store.selected(target)))),"Visible main timestamp matches latest successful cache");
+        main(()->{long now=System.currentTimeMillis();Store.save(target,Collections.singletonList(new Usage("codex","fixture",42,now/1000+2,now)));});
+        await(()->mainValue(()->"—%".equals(((android.widget.TextView)field(navigationActivity,"heroPercent")).getText().toString())),4000,"Visible main cache expires locally at reset without a new query");
+        check(RefreshFeedback.currentRequestId(target)==0,"Main update and expiry perform no manual usage request");
+        main(()->Store.save(target,Collections.singletonList(sample(25))));waitForIdleSync();
+    }
+    private void editorOptimizationChecks()throws Exception{
+        await(()->mainValue(()->preview().getDrawable()!=null),3000,"Initial lazy editor preview draws");
+        check(mainValue(()->{Object[] pages=(Object[])field(styleActivity,"pages"),panels=(Object[])field(styleActivity,"textPanels");int count=0,rowCount=0;for(Object page:pages)if(page!=null)count++;for(Object panel:panels)if(panel!=null)rowCount++;return count==1&&rowCount==1;}),"Editor creates only selected category and row initially");
+        java.util.concurrent.atomic.AtomicInteger writes=new java.util.concurrent.atomic.AtomicInteger();
+        android.content.SharedPreferences prefs=target.getSharedPreferences("widget_style",Context.MODE_PRIVATE);
+        android.content.SharedPreferences.OnSharedPreferenceChangeListener listener=(source,key)->writes.incrementAndGet();
+        main(()->prefs.registerOnSharedPreferenceChangeListener(listener));
+        WidgetStyle original=mainValue(()->((WidgetStyle)field(styleActivity,"current")).copy());
+        try{
+            main(()->invokeEditor("flush"));waitForIdleSync();check(writes.get()==0,"Untouched editor flush performs no preference write");
+            main(()->{
+                Bitmap before=((BitmapDrawable)preview().getDrawable()).getBitmap();WidgetStyle style=(WidgetStyle)field(styleActivity,"current");
+                for(int step=1;step<=3;step++){style.rows[WidgetStyle.PERCENT].sizeSp=original.rows[WidgetStyle.PERCENT].sizeSp+step;invokeEditor("changed");}
+                check((Boolean)field(styleActivity,"framePosted")&&((BitmapDrawable)preview().getDrawable()).getBitmap()==before,"Rapid edits wait for one next-frame preview instead of drawing per input");
+                invokeEditor("flush");
+            });
+            check(WeeklyWidget.style(target).rows[WidgetStyle.PERCENT].sizeSp==original.rows[WidgetStyle.PERCENT].sizeSp+3,"Immediate flush persists final pending edit before preview frame");
+            main(()->{Field current=WidgetStyleSettingsActivity.class.getDeclaredField("current");current.setAccessible(true);current.set(styleActivity,original.copy());invokeEditor("changed");invokeEditor("flush");});
+            waitForIdleSync();
+        }finally{main(()->prefs.unregisterOnSharedPreferenceChangeListener(listener));}
+    }
+    private void invokeEditor(String name)throws Exception{java.lang.reflect.Method method=WidgetStyleSettingsActivity.class.getDeclaredMethod(name);method.setAccessible(true);method.invoke(styleActivity);}
     private Activity openStyleEntry(boolean floating)throws Exception{
         ActivityMonitor monitor=addMonitor(WidgetStyleSettingsActivity.class.getName(),null,false);
         try{main(()->styleEntry(floating).performClick());Activity activity=waitForMonitorWithTimeout(monitor,15000);check(activity!=null,"Single main-screen style click starts an editor Activity (floating="+floating+")");return activity;}
@@ -243,7 +285,7 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
         if(decor.getWidth()<=0||decor.getHeight()<=0)throw new AssertionError("App-owned view is not laid out for visual capture");
         java.io.File external=target.getExternalFilesDir(null);
         if(external==null)throw new IllegalStateException("App-scoped test-output directory unavailable");
-        java.io.File directory=new java.io.File(external,"runtime-v063");
+        java.io.File directory=new java.io.File(external,"runtime-smoke");
         if(!directory.isDirectory()&&!directory.mkdirs())throw new IllegalStateException("Could not create app-scoped visual-output directory");
         java.io.File output=new java.io.File(directory,name);
         Bitmap bitmap=Bitmap.createBitmap(decor.getWidth(),decor.getHeight(),Bitmap.Config.ARGB_8888);
@@ -306,12 +348,57 @@ public final class RuntimeSmokeInstrumentation extends Instrumentation {
         main(()->{WidgetStyle style=FloatingPreferences.style(target);style.overallOpacity=50;FloatingPreferences.saveStyle(target,style);});
         await(()->mainValue(()->Math.abs(maxAlpha(((BitmapDrawable)image().getDrawable()).getBitmap())-128)<=1),3000,"Live overlay repaints to 50% overall opacity");
         check(WidgetAppearance.load(target,"widget_style").overallOpacity==73,"Changing floating overall opacity leaves home opacity unchanged");
+        ImageView previouslyVisible=image();
         main(()->{WidgetStyle style=FloatingPreferences.style(target);style.overallOpacity=0;FloatingPreferences.saveStyle(target,style);});
-        await(()->mainValue(()->maxAlpha(((BitmapDrawable)image().getDrawable()).getBitmap())==0),3000,"Live overlay repaints to fully transparent at 0%");
+        await(()->!FloatingWidgetService.isShowing()&&mainValue(()->!previouslyVisible.isAttachedToWindow()),3000,"0% overall opacity removes the actual floating touch window");
         check(FloatingWidgetService.isActive(),"Fully transparent floating widget retains a closable session");
+        check(mainValue(()->previouslyVisible.getDrawable()==null),"Detached transparent window releases its displayed bitmap");
+        check(mainValue(()->((Long)field(service(),"resumeUntil"))==0),"Intentionally transparent overlay cancels wake retries");
         main(()->{WidgetStyle style=FloatingPreferences.style(target);style.overallOpacity=100;FloatingPreferences.saveStyle(target,style);});
-        await(()->mainValue(()->maxAlpha(((BitmapDrawable)image().getDrawable()).getBitmap())==255),3000,"Live overlay restores full opacity without reopening");
+        await(()->FloatingWidgetService.isShowing()&&mainValue(()->image().isAttachedToWindow()&&image().getDrawable() instanceof BitmapDrawable&&maxAlpha(((BitmapDrawable)image().getDrawable()).getBitmap())==255),3000,"Visible style reattaches the window without reopening the session");
         check(RefreshFeedback.currentRequestId(target)==0,"Overall-opacity changes never start a usage query");
+        blankContentVisibility();
+    }
+    private void blankContentVisibility()throws Exception{
+        WidgetStyle original=FloatingPreferences.style(target).copy();
+        WidgetStyle blank=WidgetStyle.defaults();blank.opacity=0;blank.overallOpacity=100;blank.feedbackEnabled=true;blank.feedbackDurationMs=3000;
+        for(WidgetStyle.Row row:blank.rows)row.enabled=false;
+        try{
+            main(()->FloatingPreferences.saveStyle(target,blank.copy()));
+            await(()->!FloatingWidgetService.isShowing()&&mainValue(()->!image().isAttachedToWindow()),3000,"Transparent background with all content hidden removes the Android touch window");
+            check(FloatingWidgetService.isActive(),"A completely blank style keeps its user-started session");
+            main(()->{blank.rows[WidgetStyle.BRAND].enabled=true;blank.brandMode=0;FloatingPreferences.saveStyle(target,blank.copy());});waitForIdleSync();
+            check(!FloatingWidgetService.isShowing(),"Brand mode None does not count as visible content");
+            main(()->{blank.brandMode=2;FloatingPreferences.saveStyle(target,blank.copy());});
+            await(()->FloatingWidgetService.isShowing()&&mainValue(()->maxAlpha(((BitmapDrawable)image().getDrawable()).getBitmap())>0),3000,"Logo-only content restores the actual floating window");
+            main(()->{
+                blank.brandMode=0;blank.rows[WidgetStyle.RESET].enabled=true;
+                WidgetStyle.DateSpec date=blank.resetDate;
+                date.year=date.month=date.day=date.weekday=date.hour=date.minute=date.second=date.ampm=false;
+                date.label=true;FloatingPreferences.saveStyle(target,blank.copy());
+            });
+            await(()->!FloatingWidgetService.isShowing()&&mainValue(()->!image().isAttachedToWindow()),3000,"An enabled date row with every date element disabled stays touch-free");
+            main(()->{blank.resetDate.hour=true;FloatingPreferences.saveStyle(target,blank.copy());});
+            await(()->FloatingWidgetService.isShowing(),3000,"An hour-only date restores visible content without a query");
+            main(()->{blank.resetDate.hour=false;FloatingPreferences.saveStyle(target,blank.copy());});
+            await(()->!FloatingWidgetService.isShowing(),3000,"Hiding the last date element removes the touch window again");
+            check(RefreshFeedback.currentRequestId(target)==0,"Blank/date/logo visibility changes never start a refresh request");
+            // Inject only local feedback state; no service, account or HTTP query is started.
+            main(()->{long id=RefreshFeedback.begin(target);RefreshFeedback.success(target,id);FloatingWidgetService.repaint(target);});
+            await(()->FloatingWidgetService.isShowing(),3000,"Synthetic success feedback alone can reveal an otherwise blank floating widget");
+            await(()->!FloatingWidgetService.isShowing()&&mainValue(()->!image().isAttachedToWindow()),5000,"Feedback expiry removes the now-blank floating window");
+            check(FloatingWidgetService.isActive(),"Feedback-only expiry preserves the active floating session");
+            main(()->{
+                RefreshFeedback.clear(target);blank.overallOpacity=0;FloatingPreferences.saveStyle(target,blank.copy());
+                long id=RefreshFeedback.begin(target);RefreshFeedback.success(target,id);FloatingWidgetService.repaint(target);
+            });waitForIdleSync();
+            check(!FloatingWidgetService.isShowing()&&mainValue(()->!image().isAttachedToWindow()),"0% overall opacity keeps even synthetic success feedback detached");
+            check(mainValue(()->((Long)field(service(),"resumeUntil"))==0),"Invisible feedback does not restart wake polling");
+        }finally{
+            main(()->{RefreshFeedback.clear(target);FloatingPreferences.saveStyle(target,original);});
+        }
+        await(()->FloatingWidgetService.isShowing(),3000,"Original floating style is restored after visibility fixtures");
+        check(RefreshFeedback.currentRequestId(target)==0&&!Store.connected(target),"Visibility fixtures leave no request or connected account");
     }
     private static int[] pixels(Bitmap bitmap){int[] pixels=new int[bitmap.getWidth()*bitmap.getHeight()];bitmap.getPixels(pixels,0,bitmap.getWidth(),0,0,bitmap.getWidth(),bitmap.getHeight());return pixels;}
     private static int maxAlpha(Bitmap bitmap){int max=0;for(int pixel:pixels(bitmap))max=Math.max(max,pixel>>>24);return max;}

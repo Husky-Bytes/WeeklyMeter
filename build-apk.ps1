@@ -40,6 +40,7 @@ try {
     $authStubs = @(Get-ChildItem -LiteralPath "$projectPath\tests\auth-stubs" -Recurse -Filter '*.java' | ForEach-Object FullName)
     Run-Native "$Jdk\bin\javac.exe" (@('--release','8','-encoding','UTF-8','-d',"$buildPath\auth-test-classes","$src\Json.java","$src\Usage.java","$src\NetworkPolicy.java","$src\Api.java","$src\Repo.java","$src\BrowserAuth.java","$projectPath\tests\AuthRegressionTests.java") + $authStubs)
     Run-Native "$Jdk\bin\java.exe" @('-cp',"$buildPath\auth-test-classes",'dev.yerin.weeklymeter.AuthRegressionTests')
+    & "$projectPath\test-api-deadline.ps1" -SourceRoot $projectPath -JavaBin "$Jdk\bin" -OutputDirectory "$buildPath\api-deadline-test-classes"
     & "$projectPath\test-lifecycle.ps1" -SourceRoot $projectPath -JavaBin "$Jdk\bin" -OutputDirectory "$buildPath\lifecycle-test-classes"
     & "$projectPath\test-browser-auth.ps1" -SourceRoot $projectPath -JavaBin "$Jdk\bin" -OutputDirectory "$buildPath\browser-test-classes"
     & "$projectPath\test-browser-service.ps1" -SourceRoot $projectPath -JavaBin "$Jdk\bin" -OutputDirectory "$buildPath\browser-service-test-classes"
@@ -50,13 +51,15 @@ try {
     & "$projectPath\test-background-access.ps1" -SourceRoot $projectPath -JavaBin "$Jdk\bin" -OutputDirectory "$buildPath\background-access-test-classes"
     & "$projectPath\test-floating-style.ps1" -SourceRoot $projectPath -JavaBin "$Jdk\bin" -OutputDirectory "$buildPath\floating-style-test-classes"
     & "$projectPath\test-floating-service.ps1" -SourceRoot $projectPath -JavaBin "$Jdk\bin" -OutputDirectory "$buildPath\floating-service-test-classes"
+    & "$projectPath\test-floating-lifecycle.ps1" -SourceRoot $projectPath -JavaBin "$Jdk\bin" -OutputDirectory "$buildPath\floating-lifecycle-test-classes"
     & "$projectPath\test-preview.ps1" -SourceRoot $projectPath -JavaBin "$Jdk\bin" -OutputDirectory "$buildPath\preview-test-classes"
+    & "$projectPath\test-display-state.ps1" -SourceRoot $projectPath -JavaBin "$Jdk\bin" -OutputDirectory "$buildPath\display-state-test-classes"
     Run-Native 'python' @("$projectPath\check-project.py")
     Run-Native 'python' @("$projectPath\tests\check-adaptive-icon.py")
     Run-Native "$toolsPath\aapt2.exe" @('compile','--dir',"$projectPath\app\src\main\res",'-o',"$buildPath\resources.zip")
     # Windows aapt2 -A can emit backslashes in nested asset ZIP entry names.
     # Insert assets ourselves below using canonical Android '/' paths, before signing.
-    Run-Native "$toolsPath\aapt2.exe" @('link','-I',$androidJar,'--manifest',"$projectPath\app\src\main\AndroidManifest.xml",'--java',"$buildPath\gen",'--min-sdk-version','26','--target-sdk-version','35','--version-code','13','--version-name','0.6.3','-o',"$buildPath\base.apk","$buildPath\resources.zip")
+    Run-Native "$toolsPath\aapt2.exe" @('link','-I',$androidJar,'--manifest',"$projectPath\app\src\main\AndroidManifest.xml",'--java',"$buildPath\gen",'--min-sdk-version','26','--target-sdk-version','35','--version-code','16','--version-name','0.6.6','-o',"$buildPath\base.apk","$buildPath\resources.zip")
     $sources = @(Get-ChildItem -LiteralPath "$projectPath\app\src\main\java","$buildPath\gen" -Recurse -Filter '*.java' | ForEach-Object FullName)
     Run-Native "$Jdk\bin\javac.exe" (@('-source','8','-target','8','-encoding','UTF-8','-bootclasspath',"$toolsPath\core-lambda-stubs.jar;$androidJar",'-d',"$buildPath\classes") + $sources)
     Run-Native "$Jdk\bin\jar.exe" @('cf',"$buildPath\classes.jar",'-C',"$buildPath\classes",'.')

@@ -89,6 +89,9 @@ final class Messages {
         en.put("Android가 조회 작업을 종료했어. 위젯을 다시 눌러 줘.","Android ended the refresh task. Tap the widget again."); ko.put("Android가 조회 작업을 종료했어. 위젯을 다시 눌러 줘.","조회가 종료되었습니다. 다시 시도해 주세요.");
         en.put("위젯 조회 작업이 종료됐어. 위젯을 다시 눌러 줘.","The widget refresh task ended. Tap the widget again."); ko.put("위젯 조회 작업이 종료됐어. 위젯을 다시 눌러 줘.","조회가 종료되었습니다. 다시 시도해 주세요.");
         en.put("저장된 인증정보를 읽을 수 없어. 연결을 지운 뒤 다시 로그인해 줘.","Stored credentials could not be read. Disconnect and sign in again."); ko.put("저장된 인증정보를 읽을 수 없어. 연결을 지운 뒤 다시 로그인해 줘.","저장된 로그인을 사용할 수 없습니다. 다시 로그인해 주세요.");
+        en.put("로그인 권한이 만료되었거나 철회됐어. 앱에서 다시 로그인해 줘.","Sign-in has expired or been revoked. Please sign in again in the app."); ko.put("로그인 권한이 만료되었거나 철회됐어. 앱에서 다시 로그인해 줘.","로그인이 만료되었거나 해제되었습니다. 앱에서 다시 로그인해 주세요.");
+        en.put("로그인 확인이 필요해. 인증 응답을 끝까지 확인하지 못했어. 저장된 정보는 유지했으니 앱에서 다시 로그인해 줘.","Sign-in could not be confirmed. Please sign in again in the app."); ko.put("로그인 확인이 필요해. 인증 응답을 끝까지 확인하지 못했어. 저장된 정보는 유지했으니 앱에서 다시 로그인해 줘.","로그인을 확인할 수 없습니다. 앱에서 다시 로그인해 주세요.");
+        en.put("이전 통신을 종료하는 중이야. 잠시 후 다시 확인해 줘.","Finishing the previous connection. Please try again shortly."); ko.put("이전 통신을 종료하는 중이야. 잠시 후 다시 확인해 줘.","연결 종료 중입니다. 잠시 후 다시 시도해 주세요.");
         ENGLISH=Collections.unmodifiableMap(en);KOREAN=Collections.unmodifiableMap(ko);
     }
     static String localize(String raw, Locale locale){

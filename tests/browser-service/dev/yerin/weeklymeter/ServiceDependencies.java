@@ -6,8 +6,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 final class MainActivity { }
 final class Texts { static java.util.Locale locale(android.content.Context c){return java.util.Locale.KOREAN;} }
 final class R { static final class drawable { static final int ic_meter=1; } }
-final class Scheduler { static void ensure(android.content.Context context) { } }
-final class WeeklyWidget { static void renderAll(android.content.Context context) { } }
+final class Scheduler {
+    static int calls;static boolean reject;
+    static void ensure(android.content.Context context) {calls++;if(reject)throw new IllegalStateException("Synthetic scheduler unavailable");}
+}
+final class WeeklyWidget {
+    static int calls;static boolean reject;
+    static void renderAll(android.content.Context context) {calls++;if(reject)throw new IllegalStateException("Synthetic widget host rejection");}
+}
 final class Repo {
     static final ExecutorService IO=Executors.newSingleThreadExecutor();
     static final AtomicInteger exchanges=new AtomicInteger(),syncs=new AtomicInteger();

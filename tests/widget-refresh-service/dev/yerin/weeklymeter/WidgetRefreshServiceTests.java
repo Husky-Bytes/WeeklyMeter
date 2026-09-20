@@ -29,7 +29,7 @@ public final class WidgetRefreshServiceTests {
         Context.JOBS.reset();Context.STYLE.data.clear();Context.FLOATING_STYLE.data.clear();Context.starts.clear();Context.stops.clear();Context.EVENTS.clear();
         FloatingWidgetService.shows=0;FloatingWidgetService.showing=false;
         Context.blockStart=false;Context.dispatch=null;Context.stopDispatch=null;Context.NOTIFICATIONS.blockChannel=false;Context.NOTIFICATIONS.last=null;
-        Store.values.data.clear();RefreshFeedback.clear(new Context());WeeklyWidget.renders=0;
+        Store.values.data.clear();RefreshFeedback.clear(new Context());WeeklyWidget.reset();
     }
     private static WidgetRefreshService start(){WidgetRefreshService s=fresh();s.onStartCommand(tap(s),0,1);return s;}
     private static CountDownLatch gate(){CountDownLatch release=new CountDownLatch(1);releases.add(release);return release;}

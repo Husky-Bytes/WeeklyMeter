@@ -9,12 +9,15 @@ public final class WeeklyMeterApplication extends Application {
         AppLanguage.synchronize(this);
         Repo.IO.execute(()->{
             try{new Repo(this).reconcileConnection();}catch(Exception e){Store.error(this,Repo.friendly(e));}
-            finally{Scheduler.ensure(this);WeeklyWidget.renderAll(this);}
+            finally{
+                try{Scheduler.ensure(this);}catch(RuntimeException unavailable){}
+                try{WeeklyWidget.renderAll(this);}catch(RuntimeException unavailable){}
+            }
         });
     }
     @Override public void onConfigurationChanged(Configuration configuration){
         super.onConfigurationChanged(configuration);
         AppLanguage.synchronize(this);
-        WeeklyWidget.renderAll(this);
+        try{WeeklyWidget.renderAll(this);}catch(RuntimeException unavailable){}
     }
 }

@@ -48,10 +48,14 @@ public final class FloatingServiceTests {
             check(layout.contains("FLAG_NOT_FOCUSABLE")&&layout.contains("FLAG_NOT_TOUCH_MODAL")&&layout.contains("FLAG_LAYOUT_IN_SCREEN"),"screenshot change preserves overlay focus, outside-touch and placement flags");
             check(!layout.contains("FLAG_NOT_TOUCHABLE"),"floating tap, drag and hold remain touchable");
             String mainSource=new String(Files.readAllBytes(Paths.get(args[0]).resolveSibling("MainActivity.java")),StandardCharsets.UTF_8).replaceAll("\\s+","");
-            check(mainSource.contains("getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE)"),"main/account screen retains secure-window capture protection");
-            check(!mainSource.contains("clearFlags(WindowManager.LayoutParams.FLAG_SECURE)"),"floating screenshot change does not clear main-screen security");
+            check(!mainSource.contains("getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE)"),"ordinary main screen does not request blanket screenshot blocking");
+            check(mainSource.contains("FloatingWidgetService.isActive()?(FloatingWidgetService.isShowing()?2:1):0"),"main screen distinguishes running hidden sessions from closed sessions");
+            check(mainSource.contains("플로팅위젯·표시중")&&mainSource.contains("플로팅위젯·숨김"),"main screen labels both visible and hidden sessions");
+            check(mainSource.contains("\"Closefloatingwidget\"")&&mainSource.contains("FloatingWidgetService.hide(this);render();")&&!mainSource.contains("privatevoidfloatingOptions()"),"direct close action is available without nested floating menu");
+            check(mainSource.contains("elseif(seenReauthentication)")&&mainSource.contains("Signin to ChatGPT again".replace(" ","")),"main screen provides explicit reauthentication before generic signed-in state");
+            check(source.contains("if(changed&&!hasVisiblePixels(rendered.bitmap))")&&source.contains("cancelResume();main.removeCallbacks(redraw);detach();"),"new fully transparent bitmap removes touch window and stops resume polling");
             check(source.contains("Settings.canDrawOverlays")&&source.contains("OPSTR_SYSTEM_ALERT_WINDOW"),"permission check plus revocation observer");
-            check(source.contains("FOREGROUND_SERVICE_TYPE_SPECIAL_USE")&&source.contains("START_NOT_STICKY")&&!source.contains("START_STICKY"),"user-controlled foreground lifetime");
+            check(source.contains("FOREGROUND_SERVICE_TYPE_SPECIAL_USE")&&source.contains("START_NOT_STICKY")&&source.contains("START_STICKY"),"system can restore an active foreground session while explicit stop still ends it");
             check(source.contains("Intent.ACTION_SCREEN_OFF")&&source.contains("isKeyguardLocked()")&&source.contains("!power.isInteractive()"),"privacy while screen locked or off");
             check(source.contains("WidgetRefreshService.ACTION_REFRESH")&&!source.contains("ACTION_HOME_TAP"),"floating tap cannot trigger home triple tap");
             check(source.contains("FloatingPreferences.style(this)")&&source.contains("RefreshFeedback.snapshot(this,true)"),"independent floating style and feedback");
@@ -60,10 +64,10 @@ public final class FloatingServiceTests {
             check(source.contains("WidgetStyleSettingsActivity.EXTRA_FLOATING,true"),"notification opens floating settings");
             check(source.contains("unregisterOnSharedPreferenceChangeListener")&&source.contains("unregisterReceiver")&&source.contains("stopWatchingMode")&&source.contains("removeCallbacksAndMessages"),"destroy cleans observers and callbacks");
             check(!source.contains("repo.sync")&&!source.contains("new Repo")&&!source.contains("HttpURLConnection")&&!source.contains("AlarmManager"),"show and repaint never query network or schedule alarms");
-            check(source.contains("boolean isActive(){return active;}")&&source.contains("foreground=true;active=true;ensureSchedule()"),"active foreground session is separate from visible attachment");
+            check(source.contains("boolean isActive(){return active;}")&&source.contains("foreground=true;setActive(true);ensureSchedule()"),"active foreground session is separate from visible attachment");
             String detach=source.substring(source.indexOf("private void detach()"),source.indexOf("private void ensureSchedule()"));
             check(!detach.contains("active=false")&&!detach.contains("ensureSchedule()"),"screen-off hiding does not reset periodic scheduling");
-            check(source.contains("closing=true;active=false;")&&source.contains("destroyed=true;if(instance==this)active=false;"),"close and destroy clear active session eligibility");
+            check(source.contains("closing=true;setActive(false);")&&source.contains("destroyed=true;if(instance==this)setActive(false);"),"close and destroy clear active session eligibility");
         }
         System.out.println("Floating overlay geometry/gesture/contracts: "+checks+" checks passed");
     }
