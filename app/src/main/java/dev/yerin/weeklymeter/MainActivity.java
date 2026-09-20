@@ -15,7 +15,7 @@ import java.util.*;
 public final class MainActivity extends Activity {
     private static final int BG=0xff101216,CARD=0xff1d2026,TEXT=0xfff7f8fa,MUTED=0xffa6abb5,ACCENT=0xffb8efcf;
     private LinearLayout content;
-    private boolean busy,autoOpenLogin;
+    private boolean busy,autoOpenLogin,awaitingOverlayReturn;
     private long openedAttempt;
     private String localStatus="";
     private String createdLanguage;
@@ -33,7 +33,7 @@ public final class MainActivity extends Activity {
         ui.postDelayed(this,500);
     }};
     @Override public void onCreate(Bundle state){
-        super.onCreate(state);createdLanguage=Texts.locale(this).getLanguage();setTitle(R.string.app_name);if(state!=null){openedAttempt=state.getLong("openedAttempt",0);autoOpenLogin=state.getBoolean("autoOpenLogin",false);}
+        super.onCreate(state);createdLanguage=Texts.locale(this).getLanguage();setTitle(R.string.app_name);if(state!=null){openedAttempt=state.getLong("openedAttempt",0);autoOpenLogin=state.getBoolean("autoOpenLogin",false);awaitingOverlayReturn=state.getBoolean("awaitingOverlayReturn",false);}
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(BG);
@@ -43,10 +43,11 @@ public final class MainActivity extends Activity {
             else view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
         setContentView(scroll);render();
     }
-    @Override protected void onSaveInstanceState(Bundle out){out.putLong("openedAttempt",openedAttempt);out.putBoolean("autoOpenLogin",autoOpenLogin);super.onSaveInstanceState(out);}
+    @Override protected void onSaveInstanceState(Bundle out){out.putLong("openedAttempt",openedAttempt);out.putBoolean("autoOpenLogin",autoOpenLogin);out.putBoolean("awaitingOverlayReturn",awaitingOverlayReturn);super.onSaveInstanceState(out);}
     @Override protected void onResume(){
         super.onResume();AppLanguage.synchronize(this);
         if(!Texts.locale(this).getLanguage().equals(createdLanguage)){recreate();return;}
+        if(awaitingOverlayReturn){awaitingOverlayReturn=false;if(overlayAllowed())showFloating();else Toast.makeText(this,t("다른 앱 위에 표시 권한이 필요합니다.","Allow display over other apps to show the floating widget."),Toast.LENGTH_LONG).show();}
         ui.post(loginUpdates);if(!busy)run(()->new Repo(this).reconcileConnection());
     }
     @Override protected void onPause(){ui.removeCallbacks(loginUpdates);super.onPause();}
@@ -60,6 +61,7 @@ public final class MainActivity extends Activity {
         Usage u=Store.selected(this);boolean valid=u!=null&&!u.expired(System.currentTimeMillis());
         LinearLayout hero=card();text(hero,valid?u.percent():"—%",56,TEXT,true);text(hero,Display.reset(this,u),14,MUTED,false);text(hero,Display.last(this,u),12,MUTED,false);gap(content,12);
         button(t("위젯 꾸미기","Customize widget"),true,()->startActivity(new Intent(this,WidgetStyleSettingsActivity.class)));
+        button(t("플로팅 위젯","Floating widget"),false,this::floatingOptions);
         button(t("홈 화면에 위젯 추가","Add widget to home screen"),false,this::pin);gap(content,20);
         if(busy)text(content,t("확인 중…","Checking…"),13,ACCENT,false);
         if(!localStatus.isEmpty())text(content,localStatus,13,0xffffd99b,false);
@@ -82,11 +84,37 @@ public final class MainActivity extends Activity {
         }
         button(t("자동 조회 상태 · 절전 설정","Auto refresh · Battery settings"),false,this::automaticStatus);
         gap(content,20);button(t("공식 사용량 화면","Official usage page"),false,()->browser("https://chatgpt.com/codex/settings/usage"));
-        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" 0.5.2")
+        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" 0.6.0")
             .setMessage(t("Codex의 주간 잔여량을 표시하는 비공식 위젯입니다. 일반 ChatGPT 모델의 통합 한도는 아닙니다.","An unofficial widget for the Codex weekly quota, not a combined limit for ChatGPT models."))
             .setPositiveButton("GitHub",(d,w)->browser("https://github.com/Husky-Bytes/WeeklyMeter")).setNegativeButton(t("닫기","Close"),null).show());
         button(t("글꼴 라이선스 · 상표 안내","Font licenses · Trademarks"),false,this::notices);
     }
+    private void floatingOptions(){
+        boolean shown=FloatingWidgetService.isActive();
+        new AlertDialog.Builder(this).setTitle(t("플로팅 위젯","Floating widget"))
+            .setMessage(t("홈 위젯을 빠르게 3번 누르면 표시됩니다.\n\n누르기 · 새로고침\n끌기 · 이동\n길게 누르기 · 닫기\n\n홈 위젯과 꾸미기·크기를 따로 설정합니다. 표시 중에는 알림이 유지됩니다.",
+                "Tap the home widget 3 times quickly to show it.\n\nTap · Refresh\nDrag · Move\nLong press · Close\n\nStyle and size are separate from the home widget. A notification remains while enabled."))
+            .setPositiveButton(shown?t("닫기","Hide"):t("띄우기","Show"),(d,w)->{if(shown){FloatingWidgetService.hide(this);render();}else requestFloating();})
+            .setNeutralButton(t("꾸미기·크기","Style & size"),(d,w)->startActivity(new Intent(this,WidgetStyleSettingsActivity.class).putExtra(WidgetStyleSettingsActivity.EXTRA_FLOATING,true)))
+            .setNegativeButton(t("취소","Cancel"),null).show();
+    }
+    private void requestFloating(){
+        if(overlayAllowed()){showFloating();return;}
+        new AlertDialog.Builder(this).setTitle(t("다른 앱 위에 표시","Display over other apps"))
+            .setMessage(t("플로팅 위젯을 사용하려면 다음 화면에서 주간 잔여량을 허용해 주세요. 다른 앱의 내용은 읽지 않습니다.",
+                "Allow WeeklyMeter on the next screen to use the floating widget. It does not read other apps' content."))
+            .setPositiveButton(t("설정 열기","Open settings"),(d,w)->{
+                awaitingOverlayReturn=true;
+                try{startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName())));}
+                catch(ActivityNotFoundException|SecurityException error){awaitingOverlayReturn=false;localStatus=t("휴대전화 설정에서 다른 앱 위에 표시를 허용해 주세요.","Allow display over other apps in your phone settings.");render();}
+            }).setNegativeButton(t("취소","Cancel"),null).show();
+    }
+    private void showFloating(){
+        try{FloatingWidgetService.show(this);}
+        catch(RuntimeException error){localStatus=t("플로팅 위젯을 시작하지 못했습니다. 권한을 확인해 주세요.","Could not show the floating widget. Check its permission.");}
+        render();
+    }
+    private boolean overlayAllowed(){try{return Settings.canDrawOverlays(this);}catch(RuntimeException unavailable){return false;}}
     private void automaticStatus(){
         // Read-only: checking system restrictions must not fetch usage or reset a job's interval.
         BackgroundAccess.Snapshot access=BackgroundAccess.read(this);
@@ -157,7 +185,7 @@ public final class MainActivity extends Activity {
             case "stopped":return t("시스템에서 중단","Stopped by the system");
             case "destroyed":return t("작업 종료","Service ended");
             case "executor_rejected":return t("조회 시작 실패","Could not start refresh");
-            case "disabled":return t("자동 조회 꺼짐 또는 위젯 없음","Automatic refresh is off or no widget exists");
+            case "disabled":return t("자동 조회 꺼짐 또는 표시 중인 위젯 없음","Automatic refresh is off or no active widget exists");
             default:return t("기록 없음","Not recorded");
         }
     }

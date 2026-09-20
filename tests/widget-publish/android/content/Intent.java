@@ -1,2 +1,2 @@
 package android.content;
-public class Intent {public final Class<?> target;private String action;public Intent(Context c,Class<?> target){this.target=target;}public Intent setAction(String value){action=value;return this;}public String getAction(){return action;}}
+public class Intent {public final Class<?> target;private String action;private final java.util.Map<String,Integer> extras=new java.util.HashMap<>();public Intent(Context c,Class<?> target){this.target=target;}public Intent setAction(String value){action=value;return this;}public String getAction(){return action;}public Intent putExtra(String key,int value){extras.put(key,value);return this;}public int getIntExtra(String key,int fallback){return extras.getOrDefault(key,fallback);}}

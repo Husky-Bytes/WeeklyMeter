@@ -2,7 +2,7 @@ param([string]$SourceRoot=$PSScriptRoot,[string]$JavaBin='', [string]$OutputDire
 $ErrorActionPreference='Stop'
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $publishSources=@(Get-ChildItem -LiteralPath (Join-Path $SourceRoot 'tests/widget-publish') -Filter '*.java' -Recurse | ForEach-Object { $_.FullName })
-foreach($name in @('WeeklyWidget','Store','Json','Usage','WidgetStyle','Messages')){$publishSources+=Join-Path $SourceRoot ('app/src/main/java/dev/yerin/weeklymeter/'+$name+'.java')}
+foreach($name in @('WeeklyWidget','WidgetAppearance','Store','Json','Usage','WidgetStyle','Messages')){$publishSources+=Join-Path $SourceRoot ('app/src/main/java/dev/yerin/weeklymeter/'+$name+'.java')}
 $publishCompiler=if($JavaBin){Join-Path $JavaBin 'javac.exe'}else{'javac'}
 $publishRuntime=if($JavaBin){Join-Path $JavaBin 'java.exe'}else{'java'}
 & $publishCompiler --release 8 -encoding UTF-8 -d $OutputDirectory $publishSources

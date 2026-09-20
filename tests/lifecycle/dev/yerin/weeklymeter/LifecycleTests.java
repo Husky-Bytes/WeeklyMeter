@@ -20,12 +20,12 @@ public final class LifecycleTests {
         RefreshFeedback.clear(new Context());Context.STYLE.data.clear();Context.starts.clear();Context.stops.clear();Context.blockStart=false;
         SystemClock.now=10000;Handler.queue.clear();Handler.delayed.clear();Repo.outcome=Repo.SyncOutcome.UPDATED;Repo.action=()->{};
         Repo.vaultConnected=true;Repo.reconcileFailure=null;Repo.reconcileAction=()->{};Repo.reconcileCalls.set(0);Repo.syncCalls.set(0);
-        Context.DIAGNOSTICS.data.clear();Context.failDiagnostics=false;
+        Context.DIAGNOSTICS.data.clear();Context.failDiagnostics=false;Context.FLOATING_STYLE.data.clear();FloatingWidgetService.showing=false;FloatingWidgetService.active=false;
     }
     private static void finishWorker()throws Exception{Repo.IO.submit(()->{}).get(5,TimeUnit.SECONDS);}
     private static void flush()throws Exception{Repo.IO.submit(()->{}).get(5,TimeUnit.SECONDS);Handler.drain();}
     public static void main(String[]args)throws Exception{
-        try{publicationBoundary();scheduler();lifecycle();automaticRecovery();automaticEligibility();feedback();diagnosticStorage();diagnosticLifecycle();System.out.println("PASS: "+checks+" independent scheduler/lifecycle checks (fake platform; no device/account/network)");}
+        try{publicationBoundary();scheduler();lifecycle();automaticRecovery();automaticEligibility();floatingEligibility();feedback();diagnosticStorage();diagnosticLifecycle();System.out.println("PASS: "+checks+" independent scheduler/lifecycle checks (fake platform; no device/account/network)");}
         finally{Repo.IO.shutdownNow();}
     }
     private static void scheduler(){
@@ -35,6 +35,9 @@ public final class LifecycleTests {
         Store.values.data.put("auto",false);Scheduler.ensure(c);check(Context.JOBS.getPendingJob(Scheduler.PERIODIC)==null,"auto-off removes periodic schedule");
         Store.values.data.put("auto",true);Store.values.data.put("minutes",30);Scheduler.ensure(c);check(Context.JOBS.getPendingJob(Scheduler.PERIODIC).interval==1800000,"30m setting honored");
         AppWidgetManager.ids=new int[0];Scheduler.ensure(c);check(Context.JOBS.getPendingJob(Scheduler.PERIODIC)==null,"no widgets cancels periodic work");
+        FloatingWidgetService.active=true;Scheduler.ensure(c);check(Context.JOBS.getPendingJob(Scheduler.PERIODIC)!=null,"floating-only display schedules automatic refresh");
+        int scheduleCount=Context.JOBS.calls.size();FloatingWidgetService.showing=false;Scheduler.ensure(c);check(Context.JOBS.calls.size()==scheduleCount&&Context.JOBS.getPendingJob(Scheduler.PERIODIC)!=null,"lockscreen hiding does not restart or cancel floating automatic interval");
+        FloatingWidgetService.active=false;Scheduler.ensure(c);check(Context.JOBS.getPendingJob(Scheduler.PERIODIC)==null,"closing only floating display cancels periodic work");
         reset();Context.JOBS.schedule(new JobInfo.Builder(Scheduler.ONCE,new ComponentName(c,UsageJob.class)).build());Store.values.data.put("requested",1L);Scheduler.ensure(c);
         check(Context.JOBS.getPendingJob(Scheduler.ONCE)==null&&!Store.values.data.containsKey("requested"),"ensure retires old manual job and timestamp");
         reset();Scheduler.request(c);check(Context.JOBS.calls.isEmpty(),"manual request never schedules a job");
@@ -44,6 +47,13 @@ public final class LifecycleTests {
         Scheduler.cancel(c);check(Context.stops.size()==1&&Context.stops.get(0).target==WidgetRefreshService.class,"logout stops temporary manual helper");
         check(RefreshFeedback.currentRequestId(c)==0,"logout clears feedback generation");
         reset();Context.JOBS.rejectAll=true;Scheduler.ensure(c);check(Store.values.data.containsKey("error"),"periodic schedule failure is reported");
+    }
+    private static void floatingEligibility()throws Exception{
+        reset();AppWidgetManager.ids=new int[0];FloatingWidgetService.active=true;FloatingWidgetService.showing=false;
+        UsageJob job=new UsageJob();JobParameters p=new JobParameters(Scheduler.PERIODIC,0);
+        check(job.onStartJob(p),"floating-only automatic job starts while hidden on lockscreen");flush();
+        check(Repo.syncCalls.get()==1,"floating-only automatic job fetches and publishes existing usage path");
+        FloatingWidgetService.active=false;check(!job.onStartJob(p),"closed floating-only display is not eligible for further automatic work");job.onDestroy();
     }
     private static void lifecycle()throws Exception{
         reset();UsageJob service=new UsageJob();JobParameters p=new JobParameters(Scheduler.PERIODIC,0);

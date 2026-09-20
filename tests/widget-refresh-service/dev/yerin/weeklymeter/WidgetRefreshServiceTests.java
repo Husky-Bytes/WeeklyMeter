@@ -14,24 +14,58 @@ import java.util.concurrent.atomic.*;
  * No Activity class is present in this test environment; no account or network is used. */
 public final class WidgetRefreshServiceTests {
     private static int checks;
+    private static long elapsedBase=10000;
     private static final List<WidgetRefreshService> services=new ArrayList<>();
     private static final List<CountDownLatch> releases=new ArrayList<>();
     private static void check(boolean value,String label){checks++;if(!value)throw new AssertionError(label);}
     private static WidgetRefreshService fresh(){WidgetRefreshService s=new WidgetRefreshService();services.add(s);return s;}
     private static Intent tap(Context c){return new Intent(c,WidgetRefreshService.class).setAction(WidgetRefreshService.ACTION_REFRESH);}
+    private static Intent homeTap(Context c,int widgetId){return new Intent(c,WidgetRefreshService.class).setAction(WidgetRefreshService.ACTION_HOME_TAP).putExtra(WidgetRefreshService.EXTRA_APP_WIDGET_ID,widgetId);}
     private static void flush()throws Exception{Repo.IO.submit(()->{}).get(3,TimeUnit.SECONDS);Handler.drain();}
     private static void reset()throws Exception{
         for(CountDownLatch latch:releases)latch.countDown();releases.clear();
         for(WidgetRefreshService s:services)s.onDestroy();services.clear();
-        Repo.reset();Handler.messages.clear();SystemClock.now=10000;
-        Context.JOBS.reset();Context.STYLE.data.clear();Context.starts.clear();Context.stops.clear();Context.EVENTS.clear();
+        Repo.reset();Handler.messages.clear();SystemClock.now=(elapsedBase+=100000);
+        Context.JOBS.reset();Context.STYLE.data.clear();Context.FLOATING_STYLE.data.clear();Context.starts.clear();Context.stops.clear();Context.EVENTS.clear();
+        FloatingWidgetService.shows=0;FloatingWidgetService.showing=false;
         Context.blockStart=false;Context.dispatch=null;Context.stopDispatch=null;Context.NOTIFICATIONS.blockChannel=false;Context.NOTIFICATIONS.last=null;
         Store.values.data.clear();RefreshFeedback.clear(new Context());WeeklyWidget.renders=0;
     }
     private static WidgetRefreshService start(){WidgetRefreshService s=fresh();s.onStartCommand(tap(s),0,1);return s;}
     private static CountDownLatch gate(){CountDownLatch release=new CountDownLatch(1);releases.add(release);return release;}
+    private static void tapSequenceChecks(){
+        WidgetTapSequence sequence=new WidgetTapSequence();
+        check(sequence.tap(7,0)==WidgetTapSequence.Action.REFRESH,"first home tap refreshes immediately at elapsed zero");
+        check(sequence.tap(7,450)==WidgetTapSequence.Action.SUPPRESS,"second home tap is gesture-only");
+        check(sequence.tap(7,900)==WidgetTapSequence.Action.SHOW_FLOATING,"third home tap at exact 900 ms boundary opens floating");
+        check(sequence.tap(7,901)==WidgetTapSequence.Action.SUPPRESS,"fourth rapid tap cannot duplicate open or fetch");
+        check(sequence.tap(99,1801)==WidgetTapSequence.Action.SUPPRESS,"continuous burst is suppressed even across widget IDs");
+        check(sequence.tap(99,2702)==WidgetTapSequence.Action.REFRESH,"a 901 ms quiet gap admits a new request");
+        sequence.reset();
+        check(sequence.tap(1,100)==WidgetTapSequence.Action.REFRESH,"fresh sequence admits first widget");
+        check(sequence.tap(2,200)==WidgetTapSequence.Action.REFRESH,"different widget starts its own sequence");
+        check(sequence.tap(1,300)==WidgetTapSequence.Action.REFRESH,"alternating widgets cannot complete a triplet");
+        check(sequence.tap(1,400)==WidgetTapSequence.Action.SUPPRESS,"same widget second tap after switch is suppressed");
+        check(sequence.tap(1,500)==WidgetTapSequence.Action.SHOW_FLOATING,"three consecutive same-widget taps open once");
+        sequence.reset();
+        check(sequence.tap(1,0)==WidgetTapSequence.Action.REFRESH,"slow tap sequence starts normally");
+        check(sequence.tap(1,901)==WidgetTapSequence.Action.REFRESH,"tap outside total window becomes a new refresh");
+        check(sequence.tap(1,902)==WidgetTapSequence.Action.SUPPRESS,"new window owns only its next tap");
+        check(sequence.tap(1,1801)==WidgetTapSequence.Action.SHOW_FLOATING,"restarted sequence also accepts its inclusive boundary");
+        sequence.reset();sequence.tap(1,5000);sequence.tap(1,5100);
+        check(sequence.tap(1,100)==WidgetTapSequence.Action.REFRESH,"backward clock invalidates pending triple");
+        check(sequence.tap(1,200)==WidgetTapSequence.Action.SUPPRESS,"backward clock starts a new count");
+        check(sequence.tap(1,300)==WidgetTapSequence.Action.SHOW_FLOATING,"new time base still supports a full fresh triple");
+        check(sequence.tap(1,-1)==WidgetTapSequence.Action.REFRESH,"invalid negative time cannot trigger floating");
+        check(sequence.tap(1,1)==WidgetTapSequence.Action.REFRESH,"invalid time leaves no partial gesture");
+        sequence.reset();
+        check(sequence.tap(-1,Long.MAX_VALUE-900)==WidgetTapSequence.Action.REFRESH,"legacy missing widget ID may start a gesture");
+        check(sequence.tap(-1,Long.MAX_VALUE-400)==WidgetTapSequence.Action.SUPPRESS,"large monotonic times do not overflow interval comparison");
+        check(sequence.tap(-1,Long.MAX_VALUE)==WidgetTapSequence.Action.SHOW_FLOATING,"large-clock boundary completes safely");
+    }
     public static void main(String[]args)throws Exception{
         try{
+            tapSequenceChecks();
             reset();Context c=new Context();Store.values.data.put("connected",false);
             WidgetRefreshService cold=start();flush();
             check(cold.foregroundCalls==1,"cold widget request enters foreground once");
@@ -137,6 +171,83 @@ public final class WidgetRefreshServiceTests {
             reset();JobInfo legacy=new JobInfo.Builder(Scheduler.ONCE,new android.content.ComponentName(c,UsageJob.class)).build();Context.JOBS.schedule(legacy);Store.values.data.put("requested",1L);Scheduler.ensure(c);
             check(Context.JOBS.getPendingJob(Scheduler.ONCE)==null&&!Store.values.data.containsKey("requested"),"app ensure retires persisted legacy manual request");
             UsageJob auto=new UsageJob();check(!auto.onStartJob(new JobParameters(Scheduler.ONCE,0)),"old manual job refuses to run after app opening");check(Repo.syncCalls.get()==0,"legacy manual job does no delayed usage fetch");
+
+            reset();WidgetRefreshService triple=fresh();triple.onStartCommand(homeTap(triple,11),0,1);flush();
+            long tripleRequest=RefreshFeedback.currentRequestId(c);
+            check(Repo.syncCalls.get()==1&&FloatingWidgetService.shows==0,"first home tap fetches without opening overlay");
+            Handler.advance(200);triple.onStartCommand(homeTap(triple,11),0,2);flush();
+            check(Repo.syncCalls.get()==1&&RefreshFeedback.currentRequestId(c)==tripleRequest,"second home tap never refetches a fast completed request");
+            Handler.advance(200);triple.onStartCommand(homeTap(triple,11),0,3);flush();
+            check(FloatingWidgetService.shows==1&&Repo.syncCalls.get()==1,"third home tap opens floating without another HTTP request");
+            check(Context.EVENTS.indexOf("foreground")<Context.EVENTS.indexOf("floating"),"triplet opens overlay only after timely refresh foreground entry");
+            Handler.advance(200);triple.onStartCommand(homeTap(triple,11),0,4);flush();
+            check(FloatingWidgetService.shows==1&&Repo.syncCalls.get()==1,"fourth rapid home tap is harmless after triplet");
+
+            reset();Context.STYLE.data.put("feedback_enabled",false);Context.FLOATING_STYLE.data.put("feedback_enabled",false);
+            WidgetRefreshService fastFirst=fresh();fastFirst.onStartCommand(homeTap(fastFirst,12),0,1);flush();
+            check(fastFirst.stopped.size()==1,"disabled home badge may end the first request before the next tap");
+            Handler.advance(150);WidgetRefreshService fastSecond=fresh();fastSecond.onStartCommand(homeTap(fastSecond,12),0,2);flush();
+            check(fastSecond.foregroundCalls==1&&fastSecond.foregroundRemoved==1&&fastSecond.stopped.size()==1,"second tap after service end promptly enters and exits foreground");
+            Handler.advance(150);WidgetRefreshService fastThird=fresh();fastThird.onStartCommand(homeTap(fastThird,12),0,3);flush();
+            check(FloatingWidgetService.shows==1&&Repo.syncCalls.get()==1,"triplet survives refresh service replacement without extra HTTP");
+            check(fastThird.foregroundCalls==1&&fastThird.foregroundRemoved==1&&fastThird.stopped.size()==1,"third gesture-only cold service stops after overlay dispatch");
+
+            reset();WidgetRefreshService mixed=fresh();mixed.onStartCommand(homeTap(mixed,21),0,1);flush();
+            Handler.advance(100);mixed.onStartCommand(tap(mixed),0,2);flush();
+            Handler.advance(100);mixed.onStartCommand(homeTap(mixed,21),0,3);flush();
+            Handler.advance(100);mixed.onStartCommand(homeTap(mixed,21),0,4);flush();
+            check(FloatingWidgetService.shows==0&&Repo.syncCalls.get()==3,"manual/floating refresh breaks a partial home gesture and is never counted");
+            Handler.advance(100);mixed.onStartCommand(homeTap(mixed,21),0,5);flush();
+            check(FloatingWidgetService.shows==1&&Repo.syncCalls.get()==3,"fresh consecutive home triplet opens after unrelated manual refresh");
+
+            reset();WidgetRefreshService slowTaps=fresh();slowTaps.onStartCommand(homeTap(slowTaps,31),0,1);flush();
+            Handler.advance(901);slowTaps.onStartCommand(homeTap(slowTaps,31),0,2);flush();
+            Handler.advance(901);slowTaps.onStartCommand(homeTap(slowTaps,31),0,3);flush();
+            check(Repo.syncCalls.get()==3&&FloatingWidgetService.shows==0,"ordinary spaced home taps each refresh and never open floating");
+
+            reset();Context.STYLE.data.put("feedback_duration_ms",100);Context.FLOATING_STYLE.data.put("feedback_duration_ms",10000);FloatingWidgetService.showing=true;
+            WidgetRefreshService longFloating=start();flush();long sharedId=RefreshFeedback.currentRequestId(c);
+            check(RefreshFeedback.snapshot(c).requestId==sharedId&&RefreshFeedback.snapshot(c,true).requestId==sharedId,"home and floating feedback share the same actual query ID");
+            Handler.advance(100);
+            check(!RefreshFeedback.snapshot(c).visible&&RefreshFeedback.snapshot(c,true).visible,"home feedback expires independently of ten-second floating feedback");
+            check(longFloating.stopped.isEmpty()&&RefreshFeedback.currentRequestId(c)==sharedId,"short home expiry cannot clear active floating feedback generation");
+            Handler.advance(9899);check(longFloating.stopped.isEmpty(),"floating terminal hold remains until its own last millisecond");
+            Handler.advance(1);check(longFloating.stopped.size()==1&&!RefreshFeedback.snapshot(c,true).visible,"maximum visible terminal expiry stops bounded refresh service");
+
+            reset();Context.STYLE.data.put("feedback_duration_ms",10000);Context.FLOATING_STYLE.data.put("feedback_duration_ms",100);FloatingWidgetService.showing=true;
+            WidgetRefreshService longHome=start();flush();Handler.advance(100);
+            check(RefreshFeedback.snapshot(c).visible&&!RefreshFeedback.snapshot(c,true).visible&&longHome.stopped.isEmpty(),"floating expiry cannot shorten home feedback");
+            Handler.advance(9900);check(longHome.stopped.size()==1,"home longer duration still owns its normal terminal hold");
+
+            reset();Context.STYLE.data.put("feedback_enabled",false);Context.FLOATING_STYLE.data.put("feedback_duration_ms",5000);FloatingWidgetService.showing=true;
+            WidgetRefreshService floatingOnly=start();flush();
+            check(!RefreshFeedback.snapshot(c).visible&&RefreshFeedback.snapshot(c,true).visible&&floatingOnly.stopped.isEmpty(),"disabled home feedback cannot disable visible floating feedback");
+            Handler.advance(5000);check(floatingOnly.stopped.size()==1,"floating-only badge ends at its configured duration");
+
+            reset();Context.FLOATING_STYLE.data.put("feedback_enabled",false);FloatingWidgetService.showing=true;
+            WidgetRefreshService homeOnly=start();flush();
+            check(RefreshFeedback.snapshot(c).visible&&!RefreshFeedback.snapshot(c,true).visible,"disabled floating feedback does not affect home feedback");
+            Handler.advance(1000);check(homeOnly.stopped.size()==1,"disabled floating feedback does not prolong home service");
+
+            reset();Context.STYLE.data.put("feedback_duration_ms",100);Context.FLOATING_STYLE.data.put("feedback_duration_ms",10000);
+            WidgetRefreshService openedDuringHold=start();flush();Handler.advance(50);FloatingWidgetService.showing=true;Handler.advance(50);
+            check(openedDuringHold.stopped.isEmpty()&&RefreshFeedback.snapshot(c,true).visible,"floating opened after HTTP completion retains its independent badge");
+            Handler.advance(9900);check(openedDuringHold.stopped.size()==1,"late floating appearance cannot extend badge beyond original expiry");
+
+            reset();Context.STYLE.data.put("feedback_duration_ms",100);Context.FLOATING_STYLE.data.put("feedback_duration_ms",1000);
+            long firstFeedback=RefreshFeedback.begin(c);RefreshFeedback.success(c,firstFeedback);Handler.advance(50);
+            long nextFeedback=RefreshFeedback.begin(c);RefreshFeedback.success(c,nextFeedback);Handler.advance(50);
+            check(RefreshFeedback.snapshot(c).requestId==nextFeedback&&RefreshFeedback.snapshot(c).visible&&RefreshFeedback.snapshot(c,true).requestId==nextFeedback,"old per-surface expiry cannot clear a newer shared request");
+            Handler.advance(50);check(!RefreshFeedback.snapshot(c).visible&&RefreshFeedback.snapshot(c,true).visible,"new generation independently expires only its home surface");
+            RefreshFeedback.clear(c);check(!RefreshFeedback.snapshot(c).visible&&!RefreshFeedback.snapshot(c,true).visible&&RefreshFeedback.currentRequestId(c)==0,"logout clear removes both feedback models and shared request");
+
+            reset();Context.FLOATING_STYLE.data.put("feedback_enabled","invalid");Context.FLOATING_STYLE.data.put("feedback_duration_ms","invalid");
+            long malformed=RefreshFeedback.begin(c);RefreshFeedback.success(c,malformed);
+            check(RefreshFeedback.snapshot(c).visible&&!RefreshFeedback.snapshot(c,true).visible,"malformed floating options cannot disable valid home feedback");
+            Context.FLOATING_STYLE.data.put("feedback_enabled",true);
+            check(RefreshFeedback.snapshot(c,true).visible&&RefreshFeedback.snapshot(c,true).expiresAt-SystemClock.now==1000,"malformed floating duration falls back independently to one second");
+            Context.STYLE.data.put("feedback_enabled",false);RefreshFeedback.running(c,malformed);
+            check(!RefreshFeedback.snapshot(c).visible&&RefreshFeedback.snapshot(c,true).state.equals("running")&&RefreshFeedback.snapshot(c,true).visible,"disabled home surface does not hide floating in-flight feedback");
 
             reset();ExecutorService active=Repo.IO;active.shutdown();active.awaitTermination(3,TimeUnit.SECONDS);WidgetRefreshService rejected=start();
             check(RefreshFeedback.snapshot(c).state.equals("error")&&Repo.syncCalls.get()==0,"executor rejection reports failure without crash");Handler.advance(1000);check(rejected.stopped.size()==1,"executor rejection stops foreground");Repo.IO=Executors.newSingleThreadExecutor();

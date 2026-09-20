@@ -19,7 +19,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** A direct user-tap request, with no Activity launch or manual JobScheduler dependency. */
 public final class WidgetRefreshService extends Service {
     public static final String ACTION_REFRESH="dev.yerin.weeklymeter.REFRESH_WIDGET_NOW";
+    public static final String ACTION_HOME_TAP="dev.yerin.weeklymeter.HOME_WIDGET_TAP";
+    public static final String EXTRA_APP_WIDGET_ID="appWidgetId";
     static final long REQUEST_TIMEOUT_MS=55_000, SERVICE_CAP_MS=70_000;
+    private static final WidgetTapSequence HOME_TAPS=new WidgetTapSequence();
     private static final String CHANNEL="widget_refresh";
     private static final int NOTIFICATION=22003;
     private static final int QUEUED=0, RUNNING=1, DONE=2;
@@ -40,16 +43,31 @@ public final class WidgetRefreshService extends Service {
     @Override public IBinder onBind(Intent intent){return null;}
     @Override public int onStartCommand(Intent intent,int flags,int startId){
         latestStartId=startId;
-        if(intent==null||!ACTION_REFRESH.equals(intent.getAction())){
+        boolean homeTap=intent!=null&&ACTION_HOME_TAP.equals(intent.getAction());
+        if(intent==null||(!homeTap&&!ACTION_REFRESH.equals(intent.getAction()))){
             if(current==null)stopSelfResult(startId);
             return START_NOT_STICKY;
         }
+        if(!homeTap)HOME_TAPS.reset();
         // Enter foreground before credential/cache reads or any executor work.
         try{enterForeground();}
         catch(RuntimeException blocked){
             long id=RefreshFeedback.begin(this);RefreshFeedback.error(this,id);
             Store.error(this,"Android가 위젯 조회 시작을 막았어. 배터리 제한을 확인하고 다시 눌러 줘.");
             WeeklyWidget.renderAll(this);stopSelfResult(startId);return START_NOT_STICKY;
+        }
+        if(homeTap){
+            WidgetTapSequence.Action action=HOME_TAPS.tap(intent.getIntExtra(EXTRA_APP_WIDGET_ID,-1),SystemClock.elapsedRealtime());
+            if(action!=WidgetTapSequence.Action.REFRESH){
+                if(action==WidgetTapSequence.Action.SHOW_FLOATING)FloatingWidgetService.show(this);
+                // Taps two and three belong to the first request, even if its
+                // fast response or disabled badge already ended that service.
+                if(current==null){
+                    if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;}
+                    stopSelfResult(latestStartId);
+                }
+                return START_NOT_STICKY;
+            }
         }
         Scheduler.retireLegacyManual(this);
         Task old=current;
@@ -131,7 +149,12 @@ public final class WidgetRefreshService extends Service {
     private void updateHold(Task task){
         RefreshFeedback.Snapshot snapshot=RefreshFeedback.snapshot(this);
         long now=SystemClock.elapsedRealtime();
-        task.holdUntil=snapshot.visible?Math.min(snapshot.expiresAt,task.startedAt+SERVICE_CAP_MS):now;
+        long expiry=snapshot.visible?snapshot.expiresAt:now;
+        if(FloatingWidgetService.isShowing()){
+            RefreshFeedback.Snapshot floating=RefreshFeedback.snapshot(this,true);
+            if(floating.visible)expiry=Math.max(expiry,floating.expiresAt);
+        }
+        task.holdUntil=Math.min(expiry,task.startedAt+SERVICE_CAP_MS);
     }
     private void showTerminal(Task task){
         if("success".equals(task.terminalState))RefreshFeedback.success(this,task.id);
@@ -152,6 +175,9 @@ public final class WidgetRefreshService extends Service {
     }
     private void stopWhenReady(Task task){
         if(!active(task)||!task.terminal||task.phase.get()!=DONE)return;
+        // A third home tap may have opened floating after the HTTP response.
+        // Recheck both independent badges before clearing their generation.
+        updateHold(task);
         long delay=task.holdUntil-SystemClock.elapsedRealtime();
         if(delay>0){main.postDelayed(()->stopWhenReady(task),delay);return;}
         closeTask(task);

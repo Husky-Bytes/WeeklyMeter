@@ -1,4 +1,4 @@
-WeeklyMeter 0.5.2 — power/background status and user-controlled settings, 2026-09-19
+WeeklyMeter 0.6.0 — optional floating widget and separate appearance, 2026-09-20
 
 PASS: 49 core parsing/network-boundary checks.
 PASS: 71 usage/JSON/bucket scenarios, including 1001 percentage samples.
@@ -6,10 +6,10 @@ PASS: 1096 widget-style/date/layout/bitmap-budget/internal-spacing checks, pure 
 PASS: 40 manual-refresh feedback/expiry checks, pure Java.
 PASS: 12 actual bundled font parsing/Korean-numeric glyph/license checks, JDK AWT.
 PASS: 91 authentication/refresh checks, real Api/Repo with fake HTTPS and storage.
-PASS: 142 periodic scheduler/job/feedback/diagnostic lifecycle checks with Android/Repo doubles.
+PASS: 148 periodic scheduler/job/feedback/diagnostic lifecycle checks with Android/Repo doubles.
 PASS: 287 browser PKCE/callback checks, including synthetic real loopback sockets.
 PASS: 28 browser login service lifecycle checks with fake Android/browser/Repo.
-PASS: 64 manual foreground service checks with real service/Scheduler/UsageJob/Feedback
+PASS: 118 manual foreground service checks with real service/Scheduler/UsageJob/Feedback
 and fake Android/Repo. No Activity class, real account or network exists in that harness.
 PASS: 2227 message-localization checks; 76 runtime message occurrences audited against
 the bilingual display catalog, plus strict structured HTTP errors. Cached legacy
@@ -19,29 +19,93 @@ PASS: 39 primary-system-language/manual-choice policy checks, pure Java.
 PASS: 59 Android language API/context/preference/receiver checks with platform doubles.
 PASS: 1006 read-only background-access checks with production BackgroundAccess and
 synthetic Android power/activity/job services. No phone settings are changed.
-PASS: 309 widget-publication checks using production WeeklyWidget/Store/Usage/style
+PASS: 339 widget-publication checks using production WeeklyWidget/Store/Usage/style
 code with fake Android, host, Bitmap and renderer. These inspect publication payloads,
 not real Canvas pixels or launcher behavior.
+PASS: 5795 floating-style/persistence checks using production appearance/preferences
+code and strict named SharedPreferences doubles. No real Activity or Canvas is run.
+PASS: 1160 floating geometry/gesture checks and service source-contract assertions.
+These do not instantiate a real overlay service or Android window.
 PASS: 36 APK asset checks: raw ZIP paths, duplicates, exact ten names, bytes/lengths.
 The 36 checks run before signing AND on the signed final APK; counted only once.
-TOTAL: 5556 executable Java logic/lifecycle/font/APK checks.
-Increase over 0.5.1: 51 lifecycle/diagnostic + 1006 background-access checks.
+TOTAL: 12601 executable Java logic/lifecycle/font/source-contract/APK checks.
+Increase over 0.5.2: 6 periodic/feedback + 54 manual-service/tap + 30 publication
++ 5795 independent appearance/persistence + 1160 floating geometry/gesture/contracts.
 The 1001 sampled percentages are part of the 71 usage scenarios, not an extra total.
-No real account or Android device is represented by these tests.
+No real account or Android runtime is represented by the 12601 checks above.
+Separate emulator runtime checks are reported below and are not added to that total.
 PASS: 49 additional static adaptive-icon resource and safe-zone geometry checks.
 PASS: 18 XML files, resource references, manifest components and restricted permissions.
 PASS: Full Windows Android compilation, DEX, alignment, signing and APK verification.
 
 Build: JDK 21.0.8; Android platform 36; build-tools 35.0.0; minSdk26/targetSdk35.
-Package dev.yerin.weeklymeter; versionCode9/versionName0.5.2.
+Package dev.yerin.weeklymeter; versionCode10/versionName0.6.0.
 Compiled locales: default English, explicit English, Korean.
 Compiled application labels: WeeklyMeter / 주간 잔여량.
 APK signature v2/v3 verified; preserved personal update signing certificate.
-APK size: 3627068 bytes; zipalign -c 4 passed.
-APK SHA256: e56ddad5ab55b2510b341100643f8292306fb76bc651ae6143e209e1d5cbd501
+APK size: 3639356 bytes; zipalign -c 4 passed.
+APK SHA256: c851ca1a3465ef6eee432aeff2f40c7e30a6dff86dc947cbc1c1f2e7e6a21954
 Certificate SHA256: abfc4290289a8df7abffe951cf096fcd1fbe3972f0887d95390bab5a4d5816ab
 
-0.5.2 battery/background guidance and diagnostics:
+0.6.0 floating-widget checks:
+The preference tests compare every appearance field across roundtrips, all legacy
+format/size/alignment combinations, malformed/oversized/wrong-type storage, default
+values, size read/save bounds, and independent returned style objects. Floating
+style saves/resets do not overwrite home appearance, credentials, usage, position,
+or the floating session's other settings. The old home migration is preserved.
+
+Pure geometry covers portrait/landscape bounds, density-scaled requested sizes,
+oversized/invalid dimensions, saved fractions and drag limits. Pure gesture checks
+cover tap, movement slop, drag-return, cancellation, duplicate release, and the
+600ms long-press state. These do not verify real touch delivery or timing.
+Service source assertions inspect overlay type/flags, permission and revocation
+checks, specialUse foreground lifetime, screen-lock hiding, local cache reads,
+separate style/feedback, explicit settings/close intents, and observer cleanup.
+They also distinguish an active session from visible attachment so lock-screen
+hiding does not cancel/restart the automatic-refresh interval.
+
+The real manual-refresh service is exercised with Android/Repo/overlay doubles for
+the 900ms same-widget triple-tap path, immediate first-tap refresh, suppression of
+extra fetches, independent widget IDs, quiet-window reset, and existing completion
+ownership. Floating taps remain refresh-only and do not enter the home gesture.
+Periodic/feedback checks include floating-only eligibility, session close behavior,
+and independent home/floating indicator duration. Publication checks inspect the
+per-widget immutable tap intent and floating repaint request in fake-host paths.
+
+Style Activity source review confirms separate mode/title/stores, 48..360dp width,
+48..300dp height, default 128x96dp, a pinned aspect-ratio-preserving preview, a resize
+shortcut, and all existing appearance controls. Source/model checks do not run real
+Android layout, accessibility, keyboard, color-wheel or overlay compositing.
+
+SEPARATE PASS: 31 Android 15/API35 emulator instrumentation runtime checks.
+Environment: isolated Pixel 8 profile emulator; published release APK 0.6.0 installed.
+Wi-Fi and mobile data disabled. No account, credentials or live usage API used.
+The recorded instrumentation result was RUNTIME_SMOKE_PASS checks=31.
+Runtime checks verify:
+- test-granted overlay permission and target version;
+- actual floating settings Activity creation, Bitmap-backed preview, configured
+  independent dimensions/styles, and no refresh on opening settings;
+- actual WindowManager attachment and Bitmap rendering of synthetic cached 75%;
+- active foreground session, no usage fetch on show, immediate window size changes;
+- synthetic saved cache update to 60% repaints without a manual request;
+- screen-off receiver callback detaches the real window while retaining active
+  session state, and user-present callback reattaches it;
+- MotionEvent delivery to the actual View moves the window, includes final release
+  coordinates, persists the position and does not refresh during drag;
+- 600ms hold ends the session, destroys the service and removes the real window
+  without a refresh; the overlay can subsequently reopen;
+- short tap reaches the manual-refresh service, reports signed-out failure, does
+  not connect an account or close the overlay; explicit hide clears session state.
+
+Important runtime limits: overlay permission was pre-granted using test appops, not
+the user's permission UI. Screen off/user present used direct receiver.onReceive
+calls, not a physical or emulated lock/unlock action. View MotionEvents are synthetic,
+not finger/launcher touch delivery. No screenshot visual QA, actual pinned-preview
+position while scrolling, real permission revocation, notification drawer or complete
+home-launcher triple-tap path was tested. Emulator checks do not establish Samsung
+One UI behavior, real credentials, live query success or power-saving reliability.
+
+Retained 0.5.2 battery/background guidance and diagnostics:
 BackgroundAccess tests exercise API26/27/28/33/34/35/36, power saver and exemption
 combinations, API-gated background restriction/pending-job reads, absent jobs/services,
 known and future reasons, and independent permission/runtime/linkage failures.
@@ -69,8 +133,10 @@ confirmation of the home screen.
 MainActivity source review and resource checks confirm the status dialog / Check again
 read status without a usage query or resetting a job interval. Settings are chosen by
 the user in Android. No Samsung sleeping-list inspection or automatic policy change,
-new alarm, permission, persistent service, notification or extra usage fetch is added.
-Existing short browser-login and manual-refresh foreground services remain.
+new alarm or extra usage fetch is added by these diagnostics. The separate optional
+0.6.0 overlay adds display/specialUse permissions and a session foreground service;
+these are not part of the battery-status feature. Existing short browser-login and
+manual-refresh foreground services remain.
 
 This is settings guidance and observability, not a verified fundamental fix for
 automatic refresh during Samsung power saving. An app optimization exception is not
@@ -87,7 +153,7 @@ These reproduce source-level failure paths; they do not establish which conditio
 caused the user's actual Galaxy S25 Ultra symptom.
 
 The periodic worker now reconciles credentials on Repo.IO, rechecks automatic-refresh
-and installed-widget eligibility, and publishes committed cache before jobFinished.
+and home-widget/active-floating eligibility, and publishes committed cache before jobFinished.
 Tests hold the queue, reconciliation and save/completion boundaries to verify
 stop/destroy/replacement behavior, cancelled queued work, signed-out or unreadable
 sessions, auto-off/widgets-removed races, completion ownership and executor rejection.
@@ -102,11 +168,16 @@ and legacy size handling, and the four-variant memory bound. Failure injection c
 that one widget/host failure does not block later IDs, including repeated exception
 instances. Coordinated overlapping renders cannot restore an older published reading.
 A cold language/widget lock-order scenario completes without deadlock.
-These 309 checks use captured fake payloads, not real Android RemoteViews/Canvas.
+These 339 checks use captured fake payloads, not real Android RemoteViews/Canvas.
 
-Automatic refresh remains JobScheduler-based at 15/30/60-minute settings with the
-same five permissions. There is no exact alarm, persistent service or added HTTP
-request solely to repaint. OS constraints can delay jobs; force-stop, process death
+Automatic refresh remains JobScheduler-based at 15/30/60-minute settings. The
+manifest now declares seven permissions: the existing INTERNET,
+ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED, FOREGROUND_SERVICE,
+FOREGROUND_SERVICE_DATA_SYNC plus optional-overlay SYSTEM_ALERT_WINDOW and
+FOREGROUND_SERVICE_SPECIAL_USE. There is no exact alarm or extra HTTP request solely
+to repaint. The optional floating session maintains its own foreground service and
+notification until closed; home-only display adds no persistent service. OS
+constraints can delay jobs; force-stop, process death
 or launcher rejection can still prevent immediate publication. The app cannot
 guarantee an exact interval or immediate home-screen repaint on Samsung One UI.
 
@@ -142,19 +213,25 @@ do not fetch usage. Success feedback requires fresh valid saved data, defaults t
 and supports 0.1–10s. OS process death can retain an image until the next redraw.
 55-second request watchdog and 70-second service cap are not strict HTTP total limits.
 Windows packaging keeps forward-slash asset names. Original four font OFLs unchanged.
-No authentication endpoint, credential format, signing key or permission change.
+No authentication endpoint, credential format or signing-key change. The two new
+overlay-related permissions are declared above; overlay permission is user-controlled.
 No passwords, account tokens, signing keys or raw private-path build logs distributed.
 
-NOT TESTED: APK installation/launch; actual Chrome/Samsung Internet authorization;
+NOT TESTED: physical-phone APK installation/launch; actual Chrome/Samsung Internet authorization;
 real OpenAI tokens/refresh/revocation; Android Keystore/AtomicFile runtime;
-real Canvas/widget/settings/keyboard rendering; Galaxy S25 Ultra/One UI 1x1 allocation,
+visual Canvas/layout/keyboard correctness and pinned-preview position while scrolling;
+permission grant UI, real z-order/finger-touch interactions, rotation, physical
+lock/unlock return, permission revocation, home-launcher triple-tap end-to-end,
+real notification-drawer visibility, full OS foreground-service policy/lifecycle;
+Galaxy S25 Ultra/One UI 1x1 allocation,
 launcher icon masks/label caching/language changes, reboot/Doze/long-term login retention;
 the user's actual automatic-update failure and corrected long-running automatic
 publication on S25 Ultra/One UI, real host update failures or device process races;
 actual Android battery-settings navigation, Samsung sleeping/deep-sleep/never-sleep
 lists, real pending-job reasons and behavior under each power-saving configuration;
 live usage vs official screen; Linux full build or byte-for-byte reproducibility.
-The adb device inventory command succeeded, but no Android device was connected.
-No device result is claimed. Automatic refresh cannot prevent revocation or ensure
+The earlier adb inventory had no physical Android device. The isolated API35
+emulator runtime result above does not substitute for Galaxy S25 Ultra/One UI tests.
+No physical-device result is claimed. Automatic refresh cannot prevent revocation or ensure
 permanent login. Test/build success is not a guarantee that account connection is safe;
 the unofficial authentication tokens are not restricted to read-only usage access.

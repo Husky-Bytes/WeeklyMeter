@@ -15,7 +15,7 @@ final class Scheduler {
     static void ensure(Context c){
         retireLegacyManual(c);
         boolean enabled=Store.connected(c)&&Store.prefs(c).getBoolean("auto",true)&&
-            AppWidgetManager.getInstance(c).getAppWidgetIds(new ComponentName(c,WeeklyWidget.class)).length>0;
+            (AppWidgetManager.getInstance(c).getAppWidgetIds(new ComponentName(c,WeeklyWidget.class)).length>0||FloatingWidgetService.isActive());
         if(!enabled){jobs(c).cancel(PERIODIC);return;}
         long mins=Store.prefs(c).getInt("minutes",15);if(mins!=15&&mins!=30&&mins!=60)mins=15;
         JobInfo old=jobs(c).getPendingJob(PERIODIC);

@@ -11,7 +11,8 @@ final class Texts {
 }
 final class Display {static String state(Context c,Usage u){return u==null?"empty":"latest";}}
 final class Scheduler {static int requests;static void ensure(Context c){}static void cancel(Context c){}static void request(Context c){requests++;}}
-final class WidgetRefreshService {static final String ACTION_REFRESH="refresh";}
+final class WidgetRefreshService {static final String ACTION_REFRESH="refresh",ACTION_HOME_TAP="home_tap",EXTRA_APP_WIDGET_ID="appWidgetId";}
+final class FloatingWidgetService {static int repaints;static void repaint(Context c){repaints++;}}
 final class RefreshFeedback {static final class Snapshot {boolean visible;String state="none";}static Snapshot snapshot(Context c){return new Snapshot();}}
 final class WidgetRenderer {
  static volatile Consumer<Usage> beforeRender=u->{};

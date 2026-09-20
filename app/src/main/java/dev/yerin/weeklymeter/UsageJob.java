@@ -38,7 +38,7 @@ public final class UsageJob extends JobService {
     }
     private boolean enabled(){
         return Store.prefs(this).getBoolean("auto",true)&&
-            AppWidgetManager.getInstance(this).getAppWidgetIds(new ComponentName(this,WeeklyWidget.class)).length>0;
+            (AppWidgetManager.getInstance(this).getAppWidgetIds(new ComponentName(this,WeeklyWidget.class)).length>0||FloatingWidgetService.isActive());
     }
     private void refresh(JobParameters params,Task task){
         if(task.stopped.get())return;

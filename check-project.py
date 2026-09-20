@@ -11,7 +11,7 @@ for f in xmls: ET.parse(f)
 manifest = ET.parse(main / 'AndroidManifest.xml').getroot()
 a = '{http://schemas.android.com/apk/res/android}'
 permissions = {x.attrib[a+'name'] for x in manifest.findall('uses-permission')}
-assert permissions == {'android.permission.INTERNET','android.permission.ACCESS_NETWORK_STATE','android.permission.RECEIVE_BOOT_COMPLETED','android.permission.FOREGROUND_SERVICE','android.permission.FOREGROUND_SERVICE_DATA_SYNC'}
+assert permissions == {'android.permission.INTERNET','android.permission.ACCESS_NETWORK_STATE','android.permission.RECEIVE_BOOT_COMPLETED','android.permission.FOREGROUND_SERVICE','android.permission.FOREGROUND_SERVICE_DATA_SYNC','android.permission.SYSTEM_ALERT_WINDOW','android.permission.FOREGROUND_SERVICE_SPECIAL_USE'}
 app=manifest.find('application')
 assert app.attrib[a+'allowBackup']=='false'
 assert app.attrib[a+'debuggable']=='false'
@@ -25,13 +25,23 @@ login=next(n for n in app.findall('service') if n.attrib[a+'name']=='.BrowserLog
 assert login.attrib[a+'exported']=='false' and login.attrib[a+'foregroundServiceType']=='dataSync'
 manual=next(n for n in app.findall('service') if n.attrib[a+'name']=='.WidgetRefreshService')
 assert manual.attrib[a+'exported']=='false' and manual.attrib[a+'foregroundServiceType']=='dataSync'
+floating=next(n for n in app.findall('service') if n.attrib[a+'name']=='.FloatingWidgetService')
+assert floating.attrib[a+'exported']=='false' and floating.attrib[a+'foregroundServiceType']=='specialUse'
+assert floating.find('property').attrib[a+'name']=='android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE'
 widget_source=(main/'java/dev/yerin/weeklymeter/WeeklyWidget.java').read_text(encoding='utf-8')
-assert 'PendingIntent.getForegroundService(c,1,refresh,' in widget_source
+assert 'PendingIntent.getForegroundService(c,widgetId<0?1:widgetId,refresh,' in widget_source
 assert 'new Intent(c,WidgetRefreshService.class)' in widget_source
+assert 'WidgetRefreshService.ACTION_HOME_TAP' in widget_source and 'WidgetRefreshService.EXTRA_APP_WIDGET_ID,widgetId' in widget_source
+appearance_source=(main/'java/dev/yerin/weeklymeter/WidgetAppearance.java').read_text(encoding='utf-8')
 for key in ['automatic_padding','padding_horizontal_dp','padding_vertical_dp','row_gap_dp']:
-    assert widget_source.count('"'+key+'"')==2, 'padding persistence read/write: '+key
+    assert appearance_source.count('"'+key+'"')==2, 'padding persistence read/write: '+key
 settings_source=(main/'java/dev/yerin/weeklymeter/WidgetStyleSettingsActivity.java').read_text(encoding='utf-8')
 assert 'new Repo(' not in settings_source and 'Scheduler.request(' not in settings_source
+assert 'FloatingPreferences.style(this)' in settings_source and 'FloatingPreferences.saveStyle(this,' in settings_source
+floating_source=(main/'java/dev/yerin/weeklymeter/FloatingWidgetService.java').read_text(encoding='utf-8')
+assert 'TYPE_APPLICATION_OVERLAY' in floating_source and 'FLAG_NOT_FOCUSABLE' in floating_source
+assert 'new Repo(' not in floating_source and '.sync(' not in floating_source, 'overlay renders cache; no independent polling'
+assert 'START_NOT_STICKY' in floating_source and 'RECEIVER_NOT_EXPORTED' in floating_source
 main_source=(main/'java/dev/yerin/weeklymeter/MainActivity.java').read_text(encoding='utf-8')
 resume_start=main_source.index('void onResume()')
 resume_end=main_source.index('@Override protected void onPause()',resume_start)

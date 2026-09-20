@@ -27,7 +27,7 @@ public final class WidgetPublishTests {
    check(percent.equals(views.bitmap.percent),"latest remaining percent for "+id);check(views.bitmap.fetchedAt==at,"latest successful fetch time for "+id);
    check(views.description!=null&&views.description.contains(percent)&&views.description.contains(Long.toString(at)),"accessibility updated with data");
    check(views.placeholder==8,"preview placeholder hidden");check(views.click!=null,"click action retained");
-   if(views.click!=null){check(views.click.intent.target==WidgetRefreshService.class,"manual click still uses refresh service");check(WidgetRefreshService.ACTION_REFRESH.equals(views.click.intent.getAction()),"manual refresh action retained");check((views.click.flags&PendingIntent.FLAG_IMMUTABLE)!=0,"immutable click retained");}
+   if(views.click!=null){check(views.click.intent.target==WidgetRefreshService.class,"manual click still uses refresh service");check(WidgetRefreshService.ACTION_HOME_TAP.equals(views.click.intent.getAction()),"home tap action supports refresh/triplet");check((views.click.flags&PendingIntent.FLAG_IMMUTABLE)!=0,"immutable click retained");check(views.click.intent.getIntExtra(WidgetRefreshService.EXTRA_APP_WIDGET_ID,-1)==id,"tap carries matching home widget ID");}
   }
  }
  private static void freshAllSizes(){
@@ -36,6 +36,7 @@ public final class WidgetPublishTests {
   verify(10,"63%",2000,2);verify(20,"63%",2000,3);check(Scheduler.requests==0,"repaint does not request a network sync");
   manager.options.put(10,sizes(new SizeF(200,80)));new WeeklyWidget().onAppWidgetOptionsChanged(context,manager,10,manager.options.get(10));verify(10,"63%",2000,1);
   check(leaves(manager.published.get(10)).get(0).bitmap.width==200,"resize uses new width");check(leaves(manager.published.get(10)).get(0).bitmap.height==80,"resize uses new height");
+  int before=FloatingWidgetService.repaints;manager.ids=new int[0];WeeklyWidget.renderAll(context);check(FloatingWidgetService.repaints==before+1,"floating-only repaint receives cache updates without home widgets");
  }
  private static void legacyAndInvalidSizes(){
   reset();Build.VERSION.SDK_INT=30;Bundle options=new Bundle();options.putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,64);options.putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,60);options.putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH,130);options.putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,95);manager.options.put(10,options);
@@ -48,7 +49,7 @@ public final class WidgetPublishTests {
  private static void failureIsolation(){
   reset();save(44,4000);RuntimeException first=new IllegalArgumentException("synthetic stale widget ID");manager.publishFailures.put(10,first);RuntimeException caught=null;
   try{WeeklyWidget.renderAll(context);}catch(RuntimeException error){caught=error;}
-  check(caught==first,"publication failure propagated after remaining widgets");verify(20,"56%",4000,2);check(manager.attempts.contains(20),"failed first publication does not block second ID");
+  check(caught==first,"publication failure propagated after remaining widgets");verify(20,"56%",4000,2);check(manager.attempts.contains(20),"failed first publication does not block second ID");check(FloatingWidgetService.repaints>0,"home publication failure still dispatches floating repaint");
   reset();save(45,5000);RuntimeException optionFailure=new IllegalStateException("synthetic options failure");manager.optionFailures.put(10,optionFailure);caught=null;
   try{WeeklyWidget.renderAll(context);}catch(RuntimeException error){caught=error;}
   check(caught==optionFailure,"option failure propagated");verify(20,"55%",5000,2);

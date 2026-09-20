@@ -1,12 +1,12 @@
 # WeeklyMeter
 
-**Your remaining Codex weekly usage, at a glance on your Android home screen.**
+**Your remaining Codex weekly usage, on your home screen or in a floating widget.**
 
-A small Android widget that runs on your phone—no PC or external relay server required. Keep just `n%`, add the reset time or last successful update, and style it to fit your home screen.
+A small Android widget that runs on your phone—no PC or external relay server required. Keep just `n%` or add the reset time and last successful update. Style home-screen widgets and an optional floating widget independently.
 
 [한국어](README.md) · [English](README.en.md)
 
-**[Download Android APK · 0.5.2](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.5.2/WeeklyMeter-0.5.2.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.5.2) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
+**[Download Android APK · 0.6.0](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.6.0/WeeklyMeter-0.6.0.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.6.0) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
 
 ![Illustrative concept showing compact WeeklyMeter widgets and customization possibilities](docs/images/weeklymeter-overview.png)
 
@@ -19,11 +19,12 @@ A small Android widget that runs on your phone—no PC or external relay server 
 ## Small widget. Your choice of details.
 
 - **Start at 1×1, resize as needed** — show only the percentage or add selected rows. Actual minimum size and cell allocation depend on your launcher.
+- **Float over other apps** — quickly tap a home widget three times, then drag to move it. Give it its own styling, width, and height. Display permission must be granted by you.
 - **Inspect power and automatic-refresh status** — view battery restrictions and recent automatic-work metadata, then open phone settings yourself. This does not bypass power policy.
 - **Tap to refresh** — a direct refresh path that does not open the app screen. A check mark appears only after valid new data has been saved.
 - **Make it fit your home screen** — color wheel, transparency, fonts, per-row text sizes, ordering, position, and internal padding.
 - **Choose each date/time component** — reset time and last successful update have independent formats. Time only is an option.
-- **Preview stays visible while editing** — choose from four descriptive cards, then a separate element picker. Styling is shared by all installed widgets.
+- **Preview stays visible while editing** — choose from four descriptive cards, then a separate element picker. All home widgets share one style; floating appearance is independent.
 - **Korean, English, and localized app names** — the default follows your primary system language, with a globe selector for manual choices. No additional permission is needed.
 - **An icon shaped by your launcher** — adaptive layers let the phone apply its usual rounded icon shape.
 - **Sign in through your phone browser** — enter your password only on the official OpenAI login page. No PC or relay server is required.
@@ -40,7 +41,20 @@ On first launch, the app uses **Korean when your primary system language is Kore
 4. Add a WeeklyMeter widget to your home screen. Open **Customize widget** in the app; changes are saved automatically.
 5. Tap the widget to refresh. Enable **last successful update** to tell when new data was received even if the percentage stays the same.
 
-Automatic refresh can be scheduled every 15 / 30 / 60 minutes while a widget is installed. Successful automatic refreshes publish both usage and the last successful refresh time to the widget. Version 0.5.1 fixes skipped background connection restoration and dropped widget publication after saving. **Opening the app or changing language/style does not trigger a network refresh.** Android battery and network restrictions may delay scheduled work; this is not a real-time display.
+Automatic refresh can be scheduled every 15 / 30 / 60 minutes while a home widget is installed or a floating session is running. Successful refreshes publish usage and the last successful refresh time to both displays. The floating widget does not create a separate polling schedule. **Opening the app or floating window, or changing language/style/size, does not trigger a network refresh.** Android battery and network restrictions may delay scheduled work; this is not a real-time display.
+
+## Use the floating widget
+
+1. Choose **Floating widget → Show** in the app. On first use, follow the prompt and grant **Display over other apps** in system settings yourself. Home-screen widgets do not need this permission.
+2. You can then **tap the same home widget three times within 0.9 seconds** to show it. The first tap requests the usual refresh; the second and third do not add separate requests.
+3. **Tap to refresh**, **drag to move**, or **hold for 0.6 seconds to close**. You can also close it from the app's floating menu or service notification.
+4. Choose **Floating widget → Style & size** to customize fonts, colors, rows, dates, and feedback independently of home widgets. **Resize** beside the pinned preview opens the width/height settings.
+
+The default is **128×96dp**; width is **48–360dp** and height **48–300dp**. Oversized dimensions are constrained to available screen space. The preview keeps the selected aspect ratio. Resetting floating appearance does not change home-widget settings.
+
+The app does not read other apps' contents; it displays its own saved usage. The overlay hides while the screen is off or locked and returns after unlocking if the session is still running. Temporary hiding does not restart the automatic-refresh interval. It does not reopen automatically after reboot or process death. Closing the floating session cancels automatic scheduling if no home widgets remain.
+
+A foreground service and notification are maintained while the floating session runs. On Android 13+, no separate notification permission is requested, so the notification may be absent from the drawer while the system's active-app list still shows the service. Phone policy may restrict display or execution. **Actual overlay rendering, touch, and lock-screen return on S25 Ultra remain unverified.**
 
 ## When automatic refresh is delayed in power saving
 
@@ -58,7 +72,7 @@ Browser login and encrypted storage are implemented, but **the authentication to
 
 The app code only performs authentication exchange/refresh and usage requests. It does not send chats or model-generation requests, and contains no advertising or analytics SDK. However, no live-account before/after comparison of usage limits or charges has been performed. Tokens are encrypted with Android Keystore and stored outside backups. Automatic token refresh is attempted, but permanent login cannot be guaranteed.
 
-**Real-account login/token refresh, Android Keystore on a real device, APK installation, and S25 Ultra / One UI rendering, battery restrictions, reboot and long-term behavior remain unverified.** This distribution is for people comfortable evaluating those limitations. See the [security scope (Korean)](SECURITY.md) and [recorded checks (English)](TEST-RESULTS.txt).
+**Real-account login/token refresh, credential storage in Android Keystore, installation on a physical phone, and S25 Ultra / One UI rendering, battery restrictions, reboot and long-term behavior remain unverified.** APK installation and the basic floating interactions below were checked on an Android 15 emulator. See the [security scope (Korean)](SECURITY.md) and [recorded checks (English)](TEST-RESULTS.txt).
 
 ## Detailed behavior
 
@@ -73,7 +87,7 @@ The app code only performs authentication exchange/refresh and usage requests. I
 - The pinned preview sits above four descriptive cards: Text & dates, Layout & spacing, Background, and Refresh feedback. A separate element picker replaces the second tab row. Redundant explanations were removed, and Korean wording is concise and polite.
 - Disable automatic spacing to adjust horizontal/vertical internal padding from 0 to 32dp and row spacing from 0 to 16dp, in 0.5dp steps. Excessive padding is limited to preserve content space at 1×1. This does not remove margins reserved outside the widget by the launcher.
 - Choose no ChatGPT identifier, text, logo, or both. Logo size is adjustable; its original shape and clear space are preserved in black/white. It does not indicate an official app.
-- 1×1 / 2×1 example previews and overflow warnings are provided. Actual home-screen dimensions, background, and text scaling can differ.
+- Home-widget previews use 1×1 / 2×1 examples; the floating preview uses your selected width/height ratio. Overflow warnings are provided. Actual dimensions, background, and text scaling can differ.
 
 Normally, only selected content appears. Missing valid usage or expired cache is shown as `—%`; a missing source date is `—`, never an invented current time. Hiding all date components removes that row.
 
@@ -84,7 +98,7 @@ Normally, only selected content appears. Missing valid usage or expired cache is
 
 A widget tap shows acknowledgement, then running feedback. A success check appears only when valid new data for the selected limit has been saved. An exclamation mark indicates an error; dots indicate waiting or request throttling, not success. Error details can be viewed in the app.
 
-Completion feedback defaults to **1.0 second**. Set 0.1–10.0 seconds in 0.1-second steps using the slider/direct input, or disable feedback. Exact disappearance timing is not guaranteed: process death, battery restrictions, or launcher delays can retain the image. Expiry is checked again on the next render.
+Completion feedback defaults to **1.0 second**. Independently for home and floating widgets, set 0.1–10.0 seconds in 0.1-second steps using the slider/direct input, or disable feedback. Exact disappearance timing is not guaranteed: process death, battery restrictions, or launcher delays can retain the image. Expiry is checked again on the next render.
 
 Manual taps use an explicit widget `PendingIntent` to start a short foreground service directly, without the job queue or opening an app Activity. Stored connection information is restored independently. A temporary system notification or running-app indicator may appear. Automatic scheduling uses `JobScheduler`. This background path has not been tested on a real S25 Ultra / One UI device.
 
@@ -124,14 +138,16 @@ The launcher masks the adaptive foreground/background into the phone's circle, r
 
 ## Version and verification
 
-0.5.2 adds read-only power/background/job status, recent automatic-work metadata, and user-controlled battery-setting guidance. JobScheduler and the 0.5.1 connection-recovery/publication fixes remain; no alarms, extra permissions, or extra usage requests are added. [Full changelog · Korean / English](CHANGELOG-0.5.2.md)
+0.6.0 adds an optional floating widget, a three-tap home-widget gesture, and independent appearance/size settings. Existing home widgets, login, and battery diagnostics remain. Optional overlay display adds permissions and a service maintained for the session. [Full changelog · Korean / English](CHANGELOG-0.6.0.md)
 
-The full Windows Android build, APK alignment/signature verification, **5,556 executable checks**, 49 static icon checks, and checks across 18 XML files/resources passed. [Detailed results](TEST-RESULTS.txt). These cover settings guidance, diagnostics, local logic and Android test doubles—not real-device/live-account success or a verified fix for automatic refresh during power saving.
+The full Windows Android build, APK alignment/signature verification, **12,601 executable checks**, 49 static icon checks, and checks across 18 XML files/resources passed. [Detailed results](TEST-RESULTS.txt). Local logic, Android test doubles, and source contracts do not establish real-device overlay behavior, live-account success, or a fix for automatic refresh during power saving.
+
+Separately, **31 Android 15 (API 35) emulator runtime checks** passed: release-APK installation, settings/real bitmap preview, overlay attachment, synthetic cache updates, resizing, dragging, hold-to-close/reopen, and the signed-out tap-refresh failure path. Networking was disabled; test-granted overlay permission and synthetic data were used. This was not screenshot visual QA, a preview-scroll-position test, real permission-screen interaction, physical lock/unlock testing, or an end-to-end three-tap home-launcher test.
 
 <details>
 <summary>Build from source / verify the download</summary>
 
-Verified Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 9.
+Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 10.
 
 ```powershell
 .\build-apk.ps1 -Project . -BuildDirectory ..\build-current -SigningDirectory ..\private-signing -Sdk D:\Android\Sdk -Jdk 'C:\Program Files\Android\Android Studio\jbr'
@@ -141,10 +157,10 @@ Replace SDK/JDK paths with your local installation paths and use a fresh `BuildD
 
 On Linux, set `ANDROID_HOME` and run `bash build-apk.sh`. A full Linux build and byte-for-byte reproducibility have not been verified. Raw build logs containing personal local paths are excluded from the public distribution.
 
-SHA-256 of the published `WeeklyMeter-0.5.2.apk`:
+SHA-256 of the published `WeeklyMeter-0.6.0.apk`:
 
 ```text
-e56ddad5ab55b2510b341100643f8292306fb76bc651ae6143e209e1d5cbd501
+c851ca1a3465ef6eee432aeff2f40c7e30a6dff86dc947cbc1c1f2e7e6a21954
 ```
 
 A matching hash verifies file identity, not the safety of the app.

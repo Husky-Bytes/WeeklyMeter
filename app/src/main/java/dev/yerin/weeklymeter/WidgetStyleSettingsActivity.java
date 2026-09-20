@@ -16,6 +16,7 @@ import java.util.*;
 
 /** The fixed preview is a sibling of the settings ScrollView. No account access. */
 public final class WidgetStyleSettingsActivity extends Activity {
+    public static final String EXTRA_FLOATING="floating";
     private static final int BG=0xff101318,CARD=0xff1c222b,TEXT=0xfff3f5f8,MUTED=0xffaeb8c7,ACCENT=0xffb8efcf;
     private String[] ROW_NAMES,ELEMENT_NAMES,CATEGORY_NAMES,CATEGORY_HINTS,FONT_NAMES,ALIGN_NAMES,BRAND_NAMES,SEPARATOR_NAMES;
     private final Handler ui=new Handler(Looper.getMainLooper());
@@ -34,12 +35,14 @@ public final class WidgetStyleSettingsActivity extends Activity {
     private ImageView previewImage;
     private TextView previewWarning,previewCaption;
     private Button squareButton,wideButton;
-    private boolean widePreview,updatingControls,compactPreview,tinyPreview;
+    private boolean widePreview,updatingControls,compactPreview,tinyPreview,floating;
+    private int floatingWidth,floatingHeight;
+    private TextView floatingDimensions;
     private String feedbackState="none";
     private String fullPreviewWarning="";
     private String displayedLanguage;
     private long exampleNow;
-    private final Runnable publish=()->{if(current!=null)WeeklyWidget.saveStyle(this,current.copy());};
+    private final Runnable publish=this::saveAppearance;
     private final Runnable endEffect=()->{feedbackState="none";updatePreview();};
     private interface BoolGet {boolean get();}
     private interface BoolSet {void set(boolean value);}
@@ -60,7 +63,9 @@ public final class WidgetStyleSettingsActivity extends Activity {
         SEPARATOR_NAMES=new String[]{tr("점  2026.09.15","Dots  2026.09.15"),tr("슬래시  2026/09/15","Slashes  2026/09/15"),tr("대시  2026-09-15","Dashes  2026-09-15"),tr("한글  2026년 9월 15일","Words  2026 Sep 15")};
     }
     @Override public void onCreate(Bundle state){
-        super.onCreate(state);displayedLanguage=Texts.locale(this).getLanguage();initializeNames();current=WeeklyWidget.style(this).copy();current.normalize();exampleNow=System.currentTimeMillis();
+        super.onCreate(state);displayedLanguage=Texts.locale(this).getLanguage();initializeNames();floating=getIntent().getBooleanExtra(EXTRA_FLOATING,false);
+        current=(floating?FloatingPreferences.style(this):WeeklyWidget.style(this)).copy();current.normalize();exampleNow=System.currentTimeMillis();
+        floatingWidth=FloatingPreferences.widthDp(this);floatingHeight=FloatingPreferences.heightDp(this);
         if(state!=null){selectedCategory=Math.max(0,Math.min(3,state.getInt("category",0)));selectedElement=Math.max(0,Math.min(3,state.getInt("element",0)));widePreview=state.getBoolean("wide",false);}
         getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
@@ -89,7 +94,7 @@ public final class WidgetStyleSettingsActivity extends Activity {
     private void buildPreviewHeader(LinearLayout root){
         LinearLayout header=new LinearLayout(this);header.setOrientation(LinearLayout.VERTICAL);header.setPadding(dp(12),dp(4),dp(12),dp(4));
         LinearLayout titleRow=new LinearLayout(this);previewTitle=titleRow;titleRow.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title=new TextView(this);title.setText(tr("위젯 꾸미기","Widget style"));title.setTextSize(19);title.setSingleLine(true);title.setEllipsize(TextUtils.TruncateAt.END);title.setTextColor(TEXT);title.setTypeface(Typeface.DEFAULT,Typeface.BOLD);titleRow.addView(title,new LinearLayout.LayoutParams(0,-2,1));
+        TextView title=new TextView(this);title.setText(floating?tr("플로팅 위젯 꾸미기","Floating widget style"):tr("위젯 꾸미기","Widget style"));title.setTextSize(19);title.setSingleLine(true);title.setEllipsize(TextUtils.TruncateAt.END);title.setTextColor(TEXT);title.setTypeface(Typeface.DEFAULT,Typeface.BOLD);titleRow.addView(title,new LinearLayout.LayoutParams(0,-2,1));
         titleRow.addView(compactButton(tr("기본값","Reset"),this::confirmDefaults),new LinearLayout.LayoutParams(dp(64),dp(48)));
         LinearLayout.LayoutParams doneLp=new LinearLayout.LayoutParams(dp(60),dp(48));doneLp.leftMargin=dp(6);titleRow.addView(compactButton(tr("완료","Done"),()->{finishEditing();flush();finish();}),doneLp);header.addView(titleRow);
         LinearLayout previewRow=new LinearLayout(this);previewRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -97,10 +102,15 @@ public final class WidgetStyleSettingsActivity extends Activity {
         previewImage=new ImageView(this);previewImage.setScaleType(ImageView.ScaleType.FIT_CENTER);previewImage.setBackground(new Checkerboard());previewImage.setOnClickListener(v->showEffect("running"));
         stage.addView(previewImage,new FrameLayout.LayoutParams(dp(67),dp(92),Gravity.CENTER));previewRow.addView(stage,new LinearLayout.LayoutParams(dp(152),dp(100)));
         LinearLayout info=new LinearLayout(this);info.setOrientation(LinearLayout.VERTICAL);info.setPadding(dp(8),0,0,0);previewRow.addView(info,new LinearLayout.LayoutParams(0,-2,1));
-        LinearLayout modeRow=new LinearLayout(this);modeRow.setGravity(Gravity.CENTER_VERTICAL);
-        squareButton=compactButton("1 × 1",()->{widePreview=false;updatePreview();});wideButton=compactButton("2 × 1",()->{widePreview=true;updatePreview();});
-        squareButton.setMaxLines(1);squareButton.setEllipsize(TextUtils.TruncateAt.END);wideButton.setMaxLines(1);wideButton.setEllipsize(TextUtils.TruncateAt.END);
-        modeRow.addView(squareButton,new LinearLayout.LayoutParams(0,dp(48),1));LinearLayout.LayoutParams wideLp=new LinearLayout.LayoutParams(0,dp(48),1);wideLp.leftMargin=dp(4);modeRow.addView(wideButton,wideLp);info.addView(modeRow);
+        if(floating){
+            floatingDimensions=text(info,"",13,TEXT,true);floatingDimensions.setGravity(Gravity.CENTER);
+            Button size=compactButton(tr("크기 조절","Resize"),()->{navigate(1,selectedElement);scroll.post(()->scroll.scrollTo(0,0));});info.addView(size,new LinearLayout.LayoutParams(-1,dp(48)));
+        }else{
+            LinearLayout modeRow=new LinearLayout(this);modeRow.setGravity(Gravity.CENTER_VERTICAL);
+            squareButton=compactButton("1 × 1",()->{widePreview=false;updatePreview();});wideButton=compactButton("2 × 1",()->{widePreview=true;updatePreview();});
+            squareButton.setMaxLines(1);squareButton.setEllipsize(TextUtils.TruncateAt.END);wideButton.setMaxLines(1);wideButton.setEllipsize(TextUtils.TruncateAt.END);
+            modeRow.addView(squareButton,new LinearLayout.LayoutParams(0,dp(48),1));LinearLayout.LayoutParams wideLp=new LinearLayout.LayoutParams(0,dp(48),1);wideLp.leftMargin=dp(4);modeRow.addView(wideButton,wideLp);info.addView(modeRow);
+        }
         previewCaption=text(info,"",11,MUTED,false);previewCaption.setGravity(Gravity.CENTER);previewCaption.setMaxLines(3);header.addView(previewRow);
         previewWarning=text(header,"",11,0xffffd398,false);previewWarning.setMinHeight(0);previewWarning.setMaxLines(2);previewWarning.setEllipsize(TextUtils.TruncateAt.END);previewWarning.setGravity(Gravity.CENTER);previewWarning.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         previewWarning.setOnClickListener(v->{if(!fullPreviewWarning.isEmpty())new AlertDialog.Builder(this).setTitle(tr("미리보기 표시 안내","Preview details")).setMessage(fullPreviewWarning).setPositiveButton(tr("확인","OK"),null).show();});
@@ -150,12 +160,17 @@ public final class WidgetStyleSettingsActivity extends Activity {
         controlUpdates.clear();settings.removeAllViews();
         attachNavigation();
         for(int i=0;i<4;i++){pages[i]=column(settings);}
+        if(floating){
+            LinearLayout size=section(pages[1],tr("플로팅 위젯 크기","Floating widget size"));
+            numeric(size,tr("너비","Width"),FloatingPreferences.MIN_WIDTH_DP,FloatingPreferences.MAX_WIDTH_DP,1,()->floatingWidth,value->floatingWidth=Math.round(value),"dp",false);
+            numeric(size,tr("높이","Height"),FloatingPreferences.MIN_HEIGHT_DP,FloatingPreferences.MAX_HEIGHT_DP,1,()->floatingHeight,value->floatingHeight=Math.round(value),"dp",false);
+        }
         for(int id=0;id<4;id++){buildTextElement(id);buildLayoutElement(id);}
         LinearLayout layout=section(pages[1],tr("위젯 전체","Whole widget"));toggle(layout,tr("공간이 부족하면 글자 자동 맞춤","Auto-fit text when space is limited"),()->current.autoFit,value->current.autoFit=value);
         LinearLayout spacing=accordion(layout,tr("안쪽 여백·요소 간격","Inner padding & row spacing"),false);toggle(spacing,tr("위젯 크기에 맞게 자동 여백","Automatic padding for widget size"),()->current.automaticPadding,value->current.automaticPadding=value);
         LinearLayout manual=column(spacing);numeric(manual,tr("좌우 여백","Horizontal padding"),0,32,.5f,()->current.paddingHorizontalDp,value->current.paddingHorizontalDp=value,"dp",true);numeric(manual,tr("상하 여백","Vertical padding"),0,32,.5f,()->current.paddingVerticalDp,value->current.paddingVerticalDp=value,"dp",true);numeric(manual,tr("요소 사이 간격","Row spacing"),0,16,.5f,()->current.rowGapDp,value->current.rowGapDp=value,"dp",true);
         controlUpdates.add(()->manual.setVisibility(current.automaticPadding?View.GONE:View.VISIBLE));text(spacing,tr("자동 여백을 끄면 직접 조절할 수 있습니다.","Turn off automatic padding to adjust padding and spacing yourself."),11,MUTED,false);
-        LinearLayout background=section(pages[2],tr("배경","Background"));colorControl(background,tr("배경색","Background color"),()->current.background,value->current.background=value);numeric(background,tr("불투명도","Opacity"),0,100,1,()->current.opacity,value->current.opacity=Math.round(value),"%",false);numeric(background,tr("모서리 둥글기","Corner radius"),0,32,1,()->current.radius,value->current.radius=Math.round(value),"dp",false);text(background,tr("격자: 투명 영역 · 실제 크기는 홈 화면에 따라 다릅니다.","Checkerboard: transparent areas · actual size varies by home screen."),11,MUTED,false);
+        LinearLayout background=section(pages[2],tr("배경","Background"));colorControl(background,tr("배경색","Background color"),()->current.background,value->current.background=value);numeric(background,tr("불투명도","Opacity"),0,100,1,()->current.opacity,value->current.opacity=Math.round(value),"%",false);numeric(background,tr("모서리 둥글기","Corner radius"),0,32,1,()->current.radius,value->current.radius=Math.round(value),"dp",false);text(background,floating?tr("격자: 투명 영역","Checkerboard: transparent areas"):tr("격자: 투명 영역 · 실제 크기는 홈 화면에 따라 다릅니다.","Checkerboard: transparent areas · actual size varies by home screen."),11,MUTED,false);
         LinearLayout feedback=section(pages[3],tr("조회 효과","Refresh feedback"));
         toggle(feedback,tr("새로고침 상태 효과 표시","Show refresh status indicators"),()->current.feedbackEnabled,value->{current.feedbackEnabled=value;if(!value){feedbackState="none";ui.removeCallbacks(endEffect);}});
         numeric(feedback,tr("효과 지속시간","Indicator duration"),.1f,10f,.1f,()->current.feedbackDurationMs/1000f,value->current.feedbackDurationMs=Math.round(value*1000),tr("초","sec"),true);
@@ -164,7 +179,7 @@ public final class WidgetStyleSettingsActivity extends Activity {
         text(feedback,tr("미리보기를 눌러 효과 확인 · 실제 조회 없음","Tap the preview to try indicators · no real refresh"),11,MUTED,false);
         showSelectedPage();refreshControls();
     }
-    private void confirmDefaults(){new AlertDialog.Builder(this).setTitle(tr("기본 스타일 복원","Restore the default style?")).setMessage(tr("꾸미기 설정을 초기화합니다. 계정 연결은 유지됩니다.","Only appearance settings will reset. Your account stays connected.")).setNegativeButton(tr("취소","Cancel"),null).setPositiveButton(tr("되돌리기","Restore"),(d,w)->{finishEditing();current=WidgetStyle.defaults();feedbackState="none";ui.removeCallbacks(endEffect);for(int[] positions:scrollPositions)Arrays.fill(positions,0);buildSettings();changed();scroll.scrollTo(0,0);}).show();}
+    private void confirmDefaults(){new AlertDialog.Builder(this).setTitle(tr("기본 스타일 복원","Restore the default style?")).setMessage(floating?tr("플로팅 위젯의 꾸미기와 크기만 초기화합니다.","Only the floating widget's appearance and size will reset."):tr("홈 화면 위젯의 꾸미기만 초기화합니다.","Only the home-screen widget's appearance will reset.")).setNegativeButton(tr("취소","Cancel"),null).setPositiveButton(tr("되돌리기","Restore"),(d,w)->{finishEditing();current=WidgetStyle.defaults();if(floating){floatingWidth=FloatingPreferences.DEFAULT_WIDTH_DP;floatingHeight=FloatingPreferences.DEFAULT_HEIGHT_DP;}feedbackState="none";ui.removeCallbacks(endEffect);for(int[] positions:scrollPositions)Arrays.fill(positions,0);buildSettings();changed();scroll.scrollTo(0,0);}).show();}
     private void buildTextElement(int id){
         WidgetStyle.Row row=current.rows[id];textPanels[id]=column(pages[0]);LinearLayout card=section(textPanels[id],ROW_NAMES[id]);toggle(card,tr("위젯에 표시","Show on widget"),()->row.enabled,value->row.enabled=value);
         if(id==WidgetStyle.RESET)dateControls(card,current.resetDate,true);if(id==WidgetStyle.LAST)dateControls(card,current.lastDate,false);
@@ -217,20 +232,25 @@ public final class WidgetStyleSettingsActivity extends Activity {
         hex.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void onTextChanged(CharSequence s,int start,int before,int count){}public void afterTextChanged(Editable value){if(updating[0]||updatingControls||!hex.hasFocus())return;try{set.set(WidgetStyle.parseRgb(value.toString()));hex.setError(null);changed();}catch(IllegalArgumentException ignored){}}});
         hex.setOnFocusChangeListener((v,focused)->{if(!focused)commit.run();});hex.setOnEditorActionListener((view,action,event)->{if(action==EditorInfo.IME_ACTION_DONE){commit.run();hex.clearFocus();return true;}return false;});parent.addView(editor);
     }
-    private int[] recentColors(){LinkedHashSet<Integer> values=new LinkedHashSet<>();for(String value:getSharedPreferences("widget_style_ui",MODE_PRIVATE).getString("recent_colors","").split(","))try{values.add(WidgetStyle.parseRgb(value));}catch(IllegalArgumentException ignored){}for(int value:new int[]{0xffffffff,0xff14181f,0xffb8efcf,0xffb9a7ec,0xffffce91,0xffffaab9})values.add(value);int[] result=new int[Math.min(6,values.size())];int i=0;for(int value:values){if(i==result.length)break;result[i++]=value;}return result;}
-    private void rememberColor(int color){LinkedHashSet<Integer> values=new LinkedHashSet<>();values.add(color);for(int value:recentColors())values.add(value);StringBuilder saved=new StringBuilder();int i=0;for(int value:values){if(i++==6)break;if(saved.length()>0)saved.append(',');saved.append(WidgetStyle.rgb(value));}getSharedPreferences("widget_style_ui",MODE_PRIVATE).edit().putString("recent_colors",saved.toString()).apply();}
+    private String appearanceUiPrefs(){return floating?"floating_style_ui":"widget_style_ui";}
+    private int[] recentColors(){LinkedHashSet<Integer> values=new LinkedHashSet<>();for(String value:getSharedPreferences(appearanceUiPrefs(),MODE_PRIVATE).getString("recent_colors","").split(","))try{values.add(WidgetStyle.parseRgb(value));}catch(IllegalArgumentException ignored){}for(int value:new int[]{0xffffffff,0xff14181f,0xffb8efcf,0xffb9a7ec,0xffffce91,0xffffaab9})values.add(value);int[] result=new int[Math.min(6,values.size())];int i=0;for(int value:values){if(i==result.length)break;result[i++]=value;}return result;}
+    private void rememberColor(int color){LinkedHashSet<Integer> values=new LinkedHashSet<>();values.add(color);for(int value:recentColors())values.add(value);StringBuilder saved=new StringBuilder();int i=0;for(int value:values){if(i++==6)break;if(saved.length()>0)saved.append(',');saved.append(WidgetStyle.rgb(value));}getSharedPreferences(appearanceUiPrefs(),MODE_PRIVATE).edit().putString("recent_colors",saved.toString()).apply();}
     private void move(int id,int delta){int index=indexOf(id),next=index+delta;if(index<0||next<0||next>=current.order.length)return;int other=current.order[next];current.order[next]=id;current.order[index]=other;changed();}
     private int indexOf(int id){for(int i=0;i<current.order.length;i++)if(current.order[i]==id)return i;return 0;}
     private void updatePreview(){
-        if(previewImage==null||current==null)return;int width=widePreview?138:64;int height=tinyPreview?44:compactPreview?62:92;FrameLayout.LayoutParams params=(FrameLayout.LayoutParams)previewImage.getLayoutParams();params.width=dp(Math.round(width*height/88f));params.height=dp(height);previewImage.setLayoutParams(params);
-        Usage example=new Usage("preview","",27,exampleNow/1000+2*86400,exampleNow);WidgetRenderer.Result rendered=WidgetRenderer.render(this,example,current,width,88,current.feedbackEnabled?feedbackState:"none");
-        previewImage.setImageBitmap(rendered.bitmap);previewImage.setContentDescription(tr("미리보기. ","Preview. ")+rendered.accessibility+tr(". 누르면 효과 미리보기",". Tap to preview feedback."));fullPreviewWarning=rendered.warning==null?"":rendered.warning;previewWarning.setText(fullPreviewWarning);previewWarning.setVisibility(fullPreviewWarning.isEmpty()?View.GONE:View.VISIBLE);previewWarning.setContentDescription(fullPreviewWarning.isEmpty()?tr("표시 경고 없음. 모든 위젯에 자동 저장","No display warnings. Auto-saved to all widgets."):fullPreviewWarning+tr(". 누르면 전체 안내",". Tap for details."));previewCaption.setText(tr("미리보기 · 73%","Preview · 73%"));
-        squareButton.setTextColor(!widePreview?BG:TEXT);squareButton.setBackground(round(!widePreview?ACCENT:0xff28313d,10));wideButton.setTextColor(widePreview?BG:TEXT);wideButton.setBackground(round(widePreview?ACCENT:0xff28313d,10));
+        if(previewImage==null||current==null)return;int width=floating?floatingWidth:widePreview?138:64,renderHeight=floating?floatingHeight:88;
+        int height=tinyPreview?44:compactPreview?62:92;float scale=floating?Math.min((tinyPreview?76f:compactPreview?102f:146f)/width,(float)height/renderHeight):(float)height/renderHeight;
+        FrameLayout.LayoutParams params=(FrameLayout.LayoutParams)previewImage.getLayoutParams();params.width=dp(Math.max(1,Math.round(width*scale)));params.height=dp(Math.max(1,Math.round(renderHeight*scale)));previewImage.setLayoutParams(params);
+        Usage example=new Usage("preview","",27,exampleNow/1000+2*86400,exampleNow);WidgetRenderer.Result rendered=WidgetRenderer.render(this,example,current,width,renderHeight,current.feedbackEnabled?feedbackState:"none");
+        previewImage.setImageBitmap(rendered.bitmap);previewImage.setContentDescription(tr("미리보기. ","Preview. ")+rendered.accessibility+tr(". 누르면 효과 미리보기",". Tap to preview feedback."));fullPreviewWarning=rendered.warning==null?"":rendered.warning;previewWarning.setText(fullPreviewWarning);previewWarning.setVisibility(fullPreviewWarning.isEmpty()?View.GONE:View.VISIBLE);previewWarning.setContentDescription(fullPreviewWarning.isEmpty()?(floating?tr("표시 경고 없음. 플로팅 위젯에 자동 저장","No display warnings. Auto-saved to the floating widget."):tr("표시 경고 없음. 홈 화면 위젯에 자동 저장","No display warnings. Auto-saved to home-screen widgets.")):fullPreviewWarning+tr(". 누르면 전체 안내",". Tap for details."));previewCaption.setText(tr("미리보기 · 73%","Preview · 73%"));
+        if(floating)floatingDimensions.setText(floatingWidth+" × "+floatingHeight+" dp");
+        else{squareButton.setTextColor(!widePreview?BG:TEXT);squareButton.setBackground(round(!widePreview?ACCENT:0xff28313d,10));wideButton.setTextColor(widePreview?BG:TEXT);wideButton.setBackground(round(widePreview?ACCENT:0xff28313d,10));}
     }
     private void showEffect(String state){if(!current.feedbackEnabled){Toast.makeText(this,tr("효과 표시를 켜 주세요.","Enable refresh indicators to preview them."),Toast.LENGTH_SHORT).show();return;}feedbackState=state;ui.removeCallbacks(endEffect);updatePreview();ui.postDelayed(endEffect,current.feedbackDurationMs);}
     private void changed(){current.normalize();refreshControls();updatePreview();ui.removeCallbacks(publish);ui.postDelayed(publish,220);}
     private void refreshControls(){updatingControls=true;try{for(Runnable update:controlUpdates)update.run();}finally{updatingControls=false;}}
-    private void flush(){ui.removeCallbacks(publish);if(current!=null){current.normalize();WeeklyWidget.saveStyle(this,current.copy());}}
+    private void flush(){ui.removeCallbacks(publish);saveAppearance();}
+    private void saveAppearance(){if(current==null)return;current.normalize();if(floating){FloatingPreferences.saveSize(this,floatingWidth,floatingHeight);FloatingPreferences.saveStyle(this,current.copy());}else WeeklyWidget.saveStyle(this,current.copy());}
     private void choice(LinearLayout parent,String title,String[] names,IntGet get,IntSet set){
         Button pick=button(parent,"",()->{});LinearLayout options=column(parent);options.setVisibility(View.GONE);
         for(int i=0;i<names.length;i++){final int index=i;Button option=button(options,names[i],()->{set.set(index);options.setVisibility(View.GONE);changed();});controlUpdates.add(()->paintSelected(option,get.get()==index));}
