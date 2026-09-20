@@ -12,7 +12,7 @@ final class Store {
     static final class Prefs {
         final Map<String,Object> data=new HashMap<>();
         boolean getBoolean(String key,boolean fallback){Object v=data.get(key);return v instanceof Boolean?(Boolean)v:fallback;}
-        int getInt(String key,int fallback){Object v=data.get(key);return v instanceof Number?((Number)v).intValue():fallback;}
+        int getInt(String key,int fallback){Object v=data.get(key);if(v==null)return fallback;return (Integer)v;}
         long getLong(String key,long fallback){Object v=data.get(key);return v instanceof Number?((Number)v).longValue():fallback;}
         Prefs edit(){return this;}
         Prefs putLong(String key,long value){data.put(key,value);return this;}

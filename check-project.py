@@ -54,6 +54,9 @@ assert 'new Repo(' not in status_ui and '.sync(' not in status_ui and 'Scheduler
 assert 'BackgroundAccess.read(this)' in status_ui and 'AutoRefreshDiagnostics.read(this)' in status_ui
 assert 'BackgroundAccess.batterySettings(this)' in status_ui and 'Settings.ACTION_APPLICATION_DETAILS_SETTINGS' in status_ui
 assert 'ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS' not in main_source, 'battery exceptions require user-controlled system settings'
+interval_ui=main_source[main_source.index('void refreshInterval()'):main_source.index('void floatingOptions()')]
+assert 'RefreshInterval.parse(' in interval_ui and 'Scheduler.ensure(' in interval_ui
+assert 'new Repo(' not in interval_ui and '.sync(' not in interval_ui, 'changing interval must not fetch usage'
 widget=ET.parse(res/'xml/weekly_widget_info.xml').getroot()
 assert widget.attrib[a+'targetCellWidth']=='1' and widget.attrib[a+'targetCellHeight']=='1'
 assert widget.attrib[a+'resizeMode']=='horizontal|vertical'

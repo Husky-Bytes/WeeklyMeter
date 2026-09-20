@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $testSources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'tests/lifecycle') -Recurse -Filter '*.java' | ForEach-Object { $_.FullName })
 $testSources += Join-Path $SourceRoot 'app/src/main/java/dev/yerin/weeklymeter/Scheduler.java'
+$testSources += Join-Path $SourceRoot 'app/src/main/java/dev/yerin/weeklymeter/RefreshInterval.java'
 $testSources += Join-Path $SourceRoot 'app/src/main/java/dev/yerin/weeklymeter/UsageJob.java'
 $testSources += Join-Path $SourceRoot 'app/src/main/java/dev/yerin/weeklymeter/AutoRefreshDiagnostics.java'
 $testSources += Join-Path $SourceRoot 'app/src/main/java/dev/yerin/weeklymeter/RefreshFeedback.java'

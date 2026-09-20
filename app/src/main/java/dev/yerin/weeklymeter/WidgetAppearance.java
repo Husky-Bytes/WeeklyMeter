@@ -14,6 +14,7 @@ final class WidgetAppearance {
             if(!data.isEmpty()&&data.length()<=65536){
                 Map<String,Object> m=Json.object(Json.parse(data));
                 s.background=integer(m,"background",s.background);s.opacity=integer(m,"opacity",s.opacity);s.radius=integer(m,"radius",s.radius);
+                s.overallOpacity=integer(m,"overall_opacity",s.overallOpacity);
                 s.autoFit=bool(m,"auto_fit",s.autoFit);s.brandMode=integer(m,"brand_mode",s.brandMode);s.brandLogoSizeSp=decimal(m,"logo_size",s.brandLogoSizeSp);
                 s.automaticPadding=bool(m,"automatic_padding",s.automaticPadding);
                 s.paddingHorizontalDp=decimal(m,"padding_horizontal_dp",s.paddingHorizontalDp);s.paddingVerticalDp=decimal(m,"padding_vertical_dp",s.paddingVerticalDp);
@@ -47,7 +48,7 @@ final class WidgetAppearance {
         WidgetStyle s=original.copy();s.normalize();List<Object> rows=new ArrayList<>(),order=new ArrayList<>();
         for(WidgetStyle.Row r:s.rows)rows.add(Json.map("enabled",r.enabled,"font",r.font,"size",r.sizeSp,"color",r.color,"bold",r.bold,"alignment",r.alignment,"offset_y",r.offsetY));
         for(int id:s.order)order.add(id);
-        Map<String,Object> value=Json.map("version",3,"background",s.background,"opacity",s.opacity,"radius",s.radius,"auto_fit",s.autoFit,
+        Map<String,Object> value=Json.map("version",3,"background",s.background,"opacity",s.opacity,"overall_opacity",s.overallOpacity,"radius",s.radius,"auto_fit",s.autoFit,
             "automatic_padding",s.automaticPadding,"padding_horizontal_dp",s.paddingHorizontalDp,"padding_vertical_dp",s.paddingVerticalDp,"row_gap_dp",s.rowGapDp,
             "brand_mode",s.brandMode,"logo_size",s.brandLogoSizeSp,"rows",rows,"order",order,"reset_date",dateMap(s.resetDate),"last_date",dateMap(s.lastDate));
         c.getSharedPreferences(prefName,Context.MODE_PRIVATE).edit().putString("style_v3",Json.encode(value))

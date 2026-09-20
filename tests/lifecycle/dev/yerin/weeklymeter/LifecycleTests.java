@@ -34,9 +34,22 @@ public final class LifecycleTests {
         Scheduler.ensure(c);check(Context.JOBS.calls.size()==1,"unchanged periodic schedule not replaced");
         Store.values.data.put("auto",false);Scheduler.ensure(c);check(Context.JOBS.getPendingJob(Scheduler.PERIODIC)==null,"auto-off removes periodic schedule");
         Store.values.data.put("auto",true);Store.values.data.put("minutes",30);Scheduler.ensure(c);check(Context.JOBS.getPendingJob(Scheduler.PERIODIC).interval==1800000,"30m setting honored");
+        for(int minutes:new int[]{20,47,120,1440,10080}){
+            Store.values.data.put("minutes",minutes);Scheduler.ensure(c);
+            check(Scheduler.minutes(c)==minutes&&Context.JOBS.getPendingJob(Scheduler.PERIODIC).interval==minutes*60_000L,"custom minutes scheduled without preset fallback");
+            int unchanged=Context.JOBS.calls.size();Scheduler.ensure(c);check(Context.JOBS.calls.size()==unchanged,"same custom interval does not restart schedule");
+        }
+        for(Object minutes:new Object[]{0,14,-1,10081,Integer.MAX_VALUE,"47",null}){
+            Store.values.data.put("minutes",minutes);Scheduler.ensure(c);
+            check(Scheduler.minutes(c)==15&&Context.JOBS.getPendingJob(Scheduler.PERIODIC).interval==900000,"malformed saved minutes safely default to 15");
+        }
+        check(Repo.syncCalls.get()==0&&Context.starts.isEmpty(),"changing periodic interval does not perform immediate usage fetch");
+        Store.values.data.put("auto",false);Store.values.data.put("minutes",47);Scheduler.ensure(c);
+        check(Context.JOBS.getPendingJob(Scheduler.PERIODIC)==null&&Scheduler.minutes(c)==47,"custom interval retained without enabling automatic refresh");
+        Store.values.data.put("auto",true);Scheduler.ensure(c);
         AppWidgetManager.ids=new int[0];Scheduler.ensure(c);check(Context.JOBS.getPendingJob(Scheduler.PERIODIC)==null,"no widgets cancels periodic work");
         FloatingWidgetService.active=true;Scheduler.ensure(c);check(Context.JOBS.getPendingJob(Scheduler.PERIODIC)!=null,"floating-only display schedules automatic refresh");
-        int scheduleCount=Context.JOBS.calls.size();FloatingWidgetService.showing=false;Scheduler.ensure(c);check(Context.JOBS.calls.size()==scheduleCount&&Context.JOBS.getPendingJob(Scheduler.PERIODIC)!=null,"lockscreen hiding does not restart or cancel floating automatic interval");
+        int scheduleCount=Context.JOBS.calls.size();FloatingWidgetService.showing=false;Scheduler.ensure(c);check(Context.JOBS.calls.size()==scheduleCount&&Context.JOBS.getPendingJob(Scheduler.PERIODIC).interval==47*60_000L,"lockscreen hiding preserves custom floating automatic interval");
         FloatingWidgetService.active=false;Scheduler.ensure(c);check(Context.JOBS.getPendingJob(Scheduler.PERIODIC)==null,"closing only floating display cancels periodic work");
         reset();Context.JOBS.schedule(new JobInfo.Builder(Scheduler.ONCE,new ComponentName(c,UsageJob.class)).build());Store.values.data.put("requested",1L);Scheduler.ensure(c);
         check(Context.JOBS.getPendingJob(Scheduler.ONCE)==null&&!Store.values.data.containsKey("requested"),"ensure retires old manual job and timestamp");

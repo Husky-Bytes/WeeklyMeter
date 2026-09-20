@@ -76,7 +76,7 @@ public final class MainActivity extends Activity {
             if(!Store.meters(this).isEmpty())button(t("표시할 주간 한도","Choose weekly limit"),false,this::chooseBucket);
             gap(content,12);Switch auto=new Switch(this);auto.setText(t("자동 새로고침","Automatic refresh"));auto.setTextColor(TEXT);auto.setChecked(Store.prefs(this).getBoolean("auto",true));auto.setPadding(0,dp(12),0,dp(12));
             auto.setOnCheckedChangeListener((b,value)->{Store.prefs(this).edit().putBoolean("auto",value).apply();Scheduler.ensure(this);});content.addView(auto,new LinearLayout.LayoutParams(-1,-2));
-            button(t("자동 조회 간격 · ","Refresh interval · ")+Store.prefs(this).getInt("minutes",15)+t("분"," min"),false,()->new AlertDialog.Builder(this).setTitle(t("자동 조회 간격","Refresh interval")).setItems(new String[]{t("15분","15 minutes"),t("30분","30 minutes"),t("60분","60 minutes")},(d,which)->{Store.prefs(this).edit().putInt("minutes",new int[]{15,30,60}[which]).apply();Scheduler.ensure(this);render();}).show());
+            button(t("자동 조회 간격 · ","Refresh interval · ")+Scheduler.minutes(this)+t("분"," min"),false,this::refreshInterval);
             button(t("연결 해제","Disconnect"),false,this::disconnect);
         }else{
             if(!login.message.isEmpty())text(content,login.message,13,MUTED,false);
@@ -84,10 +84,35 @@ public final class MainActivity extends Activity {
         }
         button(t("자동 조회 상태 · 절전 설정","Auto refresh · Battery settings"),false,this::automaticStatus);
         gap(content,20);button(t("공식 사용량 화면","Official usage page"),false,()->browser("https://chatgpt.com/codex/settings/usage"));
-        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" 0.6.0")
+        button(t("앱 정보","About"),false,()->new AlertDialog.Builder(this).setTitle(getString(R.string.app_name)+" 0.6.1")
             .setMessage(t("Codex의 주간 잔여량을 표시하는 비공식 위젯입니다. 일반 ChatGPT 모델의 통합 한도는 아닙니다.","An unofficial widget for the Codex weekly quota, not a combined limit for ChatGPT models."))
             .setPositiveButton("GitHub",(d,w)->browser("https://github.com/Husky-Bytes/WeeklyMeter")).setNegativeButton(t("닫기","Close"),null).show());
         button(t("글꼴 라이선스 · 상표 안내","Font licenses · Trademarks"),false,this::notices);
+    }
+    private void refreshInterval(){
+        LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(24),dp(8),dp(24),dp(8));
+        text(box,t("15~10080분 · 절전 중에는 지연될 수 있습니다.","15–10080 minutes · May be delayed during power saving."),12,MUTED,false);
+        EditText input=new EditText(this);input.setSingleLine(true);input.setTextColor(TEXT);input.setTextSize(20);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);input.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        input.setContentDescription(t("조회 간격(분)","Refresh interval in minutes"));input.setSelectAllOnFocus(true);
+        input.setText(String.valueOf(Scheduler.minutes(this)));box.addView(input,new LinearLayout.LayoutParams(-1,dp(56)));
+        LinearLayout presets=new LinearLayout(this);box.addView(presets,new LinearLayout.LayoutParams(-1,-2));
+        for(int minutes:new int[]{15,30,60}){
+            Button preset=new Button(this);preset.setAllCaps(false);preset.setText(minutes+t("분"," min"));
+            preset.setOnClickListener(v->{input.setText(String.valueOf(minutes));input.setSelection(input.length());input.setError(null);});
+            presets.addView(preset,new LinearLayout.LayoutParams(0,dp(48),1));
+        }
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(t("자동 조회 간격","Refresh interval")).setView(box)
+            .setPositiveButton(t("저장","Save"),null).setNegativeButton(t("취소","Cancel"),null).create();
+        dialog.setOnShowListener(ignored->{
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view->{
+                int minutes=RefreshInterval.parse(input.getText().toString());
+                if(minutes<0){input.setError(t("15~10080 사이의 정수를 입력해 주세요.","Enter a whole number from 15 to 10080."));return;}
+                Store.prefs(this).edit().putInt("minutes",minutes).apply();Scheduler.ensure(this);render();dialog.dismiss();
+            });
+            input.setOnEditorActionListener((view,action,event)->{if(action==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();return true;}return false;});
+        });
+        dialog.show();
     }
     private void floatingOptions(){
         boolean shown=FloatingWidgetService.isActive();

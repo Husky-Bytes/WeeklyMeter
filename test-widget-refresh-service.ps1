@@ -2,7 +2,7 @@ param([string]$SourceRoot=$PSScriptRoot,[string]$JavaBin='', [string]$OutputDire
 $ErrorActionPreference='Stop'
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $manualSources=@(Get-ChildItem -LiteralPath (Join-Path $SourceRoot 'tests/widget-refresh-service') -Filter '*.java' -Recurse | ForEach-Object { $_.FullName })
-foreach($name in @('WidgetRefreshService','WidgetTapSequence','Scheduler','UsageJob','RefreshFeedback','RefreshFeedbackModel','Messages')){$manualSources+=Join-Path $SourceRoot ('app/src/main/java/dev/yerin/weeklymeter/'+$name+'.java')}
+foreach($name in @('WidgetRefreshService','WidgetTapSequence','Scheduler','RefreshInterval','UsageJob','RefreshFeedback','RefreshFeedbackModel','Messages')){$manualSources+=Join-Path $SourceRoot ('app/src/main/java/dev/yerin/weeklymeter/'+$name+'.java')}
 $manualCompiler=if($JavaBin){Join-Path $JavaBin 'javac.exe'}else{'javac'}
 $manualRuntime=if($JavaBin){Join-Path $JavaBin 'java.exe'}else{'java'}
 & $manualCompiler --release 8 -encoding UTF-8 -d $OutputDirectory $manualSources

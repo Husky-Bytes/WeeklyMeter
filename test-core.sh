@@ -9,5 +9,7 @@ java -cp "$OUT" dev.yerin.weeklymeter.CoreTests
 java -cp "$OUT" dev.yerin.weeklymeter.UsageRegressionTests
 java -cp "$OUT" dev.yerin.weeklymeter.WidgetStyleTests
 java -cp "$OUT" dev.yerin.weeklymeter.RefreshFeedbackTests
+javac --release 8 -encoding UTF-8 -d "$OUT" "$SRC/RefreshInterval.java" tests/RefreshIntervalTests.java
+java -cp "$OUT" dev.yerin.weeklymeter.RefreshIntervalTests
 javac --release 8 -encoding UTF-8 -d "$OUT" tests/FontAssetTests.java
 java -Djava.awt.headless=true -cp "$OUT" FontAssetTests app/src/main/assets/fonts

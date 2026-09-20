@@ -14,6 +14,18 @@ public final class WidgetStyleTests {
         check(s.rows[0].enabled&&s.rows[1].enabled&&!s.rows[2].enabled&&!s.rows[3].enabled,"default remains percent/reset only");
         check(s.feedbackEnabled&&s.feedbackDurationMs==1000,"short feedback default");
         check(s.backgroundArgb()==0xe014181f,"default background alpha");
+        check(s.overallOpacity==100&&s.overallAlpha()==255,"overall opacity defaults to unchanged composition");
+        WidgetStyle fade=WidgetStyle.defaults();fade.opacity=27;int backgroundBeforeFade=fade.backgroundArgb();
+        for(int percent=0;percent<=100;percent++){
+            fade.overallOpacity=percent;fade.normalize();
+            check(fade.overallAlpha()==Math.round(percent*255/100f),"overall alpha maps each percent once");
+            check(fade.backgroundArgb()==backgroundBeforeFade&&fade.rows[0].color==0xffffffff,"overall fade leaves background and row source colors unchanged");
+        }
+        for(int requested:new int[]{Integer.MIN_VALUE,-100,-1,0,1,50,99,100,101,1000,Integer.MAX_VALUE}){
+            fade.overallOpacity=requested;int expected=Math.max(0,Math.min(100,requested));
+            check(fade.overallAlpha()==Math.round(expected*255/100f),"overall alpha is safe before normalization");fade.normalize();check(fade.overallOpacity==expected,"overall percent normalized to 0..100");
+        }
+        fade.overallOpacity=37;WidgetStyle fadeCopy=fade.copy();check(fadeCopy.overallOpacity==37,"copy retains overall opacity");fadeCopy.overallOpacity=0;check(fade.overallOpacity==37,"overall opacity copy is independent");
         s.opacity=0;check(s.backgroundArgb()==0x0014181f,"fully transparent background");s.opacity=100;check(s.backgroundArgb()==0xff14181f,"opaque background");
         s.opacity=50;check(s.backgroundArgb()==0x8014181f,"half opacity");
         check(WidgetStyle.parseRgb("#aBc123")==0xffabc123,"hex parse");check(WidgetStyle.parseRgb(" 123456 ")==0xff123456,"bare trimmed hex");check(WidgetStyle.rgb(0x0012abcd).equals("#12ABCD"),"canonical hex");

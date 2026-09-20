@@ -6,7 +6,7 @@ A small Android widget that runs on your phone—no PC or external relay server 
 
 [한국어](README.md) · [English](README.en.md)
 
-**[Download Android APK · 0.6.0](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.6.0/WeeklyMeter-0.6.0.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.6.0) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
+**[Download Android APK · 0.6.1](https://github.com/Husky-Bytes/WeeklyMeter/releases/download/v0.6.1/WeeklyMeter-0.6.1.apk)** · [Release notes](https://github.com/Husky-Bytes/WeeklyMeter/releases/tag/v0.6.1) · [Report a problem / suggest a feature](https://github.com/Husky-Bytes/WeeklyMeter/issues)
 
 ![Illustrative concept showing compact WeeklyMeter widgets and customization possibilities](docs/images/weeklymeter-overview.png)
 
@@ -22,7 +22,8 @@ A small Android widget that runs on your phone—no PC or external relay server 
 - **Float over other apps** — quickly tap a home widget three times, then drag to move it. Give it its own styling, width, and height. Display permission must be granted by you.
 - **Inspect power and automatic-refresh status** — view battery restrictions and recent automatic-work metadata, then open phone settings yourself. This does not bypass power policy.
 - **Tap to refresh** — a direct refresh path that does not open the app screen. A check mark appears only after valid new data has been saved.
-- **Make it fit your home screen** — color wheel, transparency, fonts, per-row text sizes, ordering, position, and internal padding.
+- **Fade the entire widget** — background, text, logo, and feedback together, independently for home and floating widgets. Background-only opacity remains available.
+- **Make it fit your home screen** — color wheel, fonts, per-row text sizes, ordering, position, and internal padding.
 - **Choose each date/time component** — reset time and last successful update have independent formats. Time only is an option.
 - **Preview stays visible while editing** — choose from four descriptive cards, then a separate element picker. All home widgets share one style; floating appearance is independent.
 - **Korean, English, and localized app names** — the default follows your primary system language, with a globe selector for manual choices. No additional permission is needed.
@@ -41,7 +42,9 @@ On first launch, the app uses **Korean when your primary system language is Kore
 4. Add a WeeklyMeter widget to your home screen. Open **Customize widget** in the app; changes are saved automatically.
 5. Tap the widget to refresh. Enable **last successful update** to tell when new data was received even if the percentage stays the same.
 
-Automatic refresh can be scheduled every 15 / 30 / 60 minutes while a home widget is installed or a floating session is running. Successful refreshes publish usage and the last successful refresh time to both displays. The floating widget does not create a separate polling schedule. **Opening the app or floating window, or changing language/style/size, does not trigger a network refresh.** Android battery and network restrictions may delay scheduled work; this is not a real-time display.
+Choose **Refresh interval** and enter any whole number from **15 to 10080 minutes (7 days)**, or use the 15 / 30 / 60 minute shortcuts. Out-of-range and fractional values are rejected without closing the input dialog. Home and floating widgets share the interval; scheduling is enabled while a home widget exists or a floating session is active.
+
+Successful refreshes publish usage and the last successful refresh time to both displays. The floating widget does not create separate polling. **Opening the app/floating window or saving interval, language, style, or size does not fetch usage.** Interval changes update scheduling. Android periodic jobs have a 15-minute minimum; battery/network restrictions may delay execution further. Exact timing and real-time updates are not guaranteed.
 
 ## Use the floating widget
 
@@ -51,6 +54,8 @@ Automatic refresh can be scheduled every 15 / 30 / 60 minutes while a home widge
 4. Choose **Floating widget → Style & size** to customize fonts, colors, rows, dates, and feedback independently of home widgets. **Resize** beside the pinned preview opens the width/height settings.
 
 The default is **128×96dp**; width is **48–360dp** and height **48–300dp**. Oversized dimensions are constrained to available screen space. The preview keeps the selected aspect ratio. Resetting floating appearance does not change home-widget settings.
+
+**Background & opacity → Overall opacity** affects background, text, logo, and feedback together: **100% keeps the original appearance; 0% is fully transparent**. Use **Background opacity** to change only the backdrop. At 0%, the floating window and its touch area remain active; close it through **Floating widget → Hide** in the app.
 
 The app does not read other apps' contents; it displays its own saved usage. The overlay hides while the screen is off or locked and returns after unlocking if the session is still running. Temporary hiding does not restart the automatic-refresh interval. It does not reopen automatically after reboot or process death. Closing the floating session cancels automatic scheduling if no home widgets remain.
 
@@ -83,8 +88,8 @@ The app code only performs authentication exchange/refresh and usage requests. I
 - Set each row's font, size, weight, color, alignment, vertical position, and order.
 - Four bundled fonts accompany the default font: Nanum Gothic, Jua, Nanum Myeongjo, and Nanum Gothic Coding. No additional font download is needed. Text sizes range from 6 to 96sp in 0.5sp steps.
 - Configure year, month, day, weekday, hour, minute, second, and AM/PM separately for both time rows. Choose date only, time only, or neither, plus 12/24-hour time, leading zeros, date separator, one/two lines, and optional labels.
-- Pick colors using a color wheel, brightness, HEX input, or recent colors. Adjust background opacity, corners, and automatic fitting.
-- The pinned preview sits above four descriptive cards: Text & dates, Layout & spacing, Background, and Refresh feedback. A separate element picker replaces the second tab row. Redundant explanations were removed, and Korean wording is concise and polite.
+- Pick colors using a color wheel, brightness, HEX input, or recent colors. Overall and background opacity each range from 0 to 100%. Existing styles default to 100% overall opacity, so upgrading alone does not change their appearance. Corners and automatic fitting are adjustable too.
+- The pinned preview sits above four descriptive cards: Text & dates, Layout & spacing, Background & opacity, and Refresh feedback. A separate element picker replaces the second tab row. Redundant explanations were removed, and Korean wording is concise and polite.
 - Disable automatic spacing to adjust horizontal/vertical internal padding from 0 to 32dp and row spacing from 0 to 16dp, in 0.5dp steps. Excessive padding is limited to preserve content space at 1×1. This does not remove margins reserved outside the widget by the launcher.
 - Choose no ChatGPT identifier, text, logo, or both. Logo size is adjustable; its original shape and clear space are preserved in black/white. It does not indicate an official app.
 - Home-widget previews use 1×1 / 2×1 examples; the floating preview uses your selected width/height ratio. Overflow warnings are provided. Actual dimensions, background, and text scaling can differ.
@@ -138,16 +143,16 @@ The launcher masks the adaptive foreground/background into the phone's circle, r
 
 ## Version and verification
 
-0.6.0 adds an optional floating widget, a three-tap home-widget gesture, and independent appearance/size settings. Existing home widgets, login, and battery diagnostics remain. Optional overlay display adds permissions and a service maintained for the session. [Full changelog · Korean / English](CHANGELOG-0.6.0.md)
+0.6.1 adds overall opacity that includes text/logos, plus custom refresh-interval input. Existing floating/home widgets, login, battery diagnostics, and permissions remain. [Full changelog · Korean / English](CHANGELOG-0.6.1.md)
 
-The full Windows Android build, APK alignment/signature verification, **12,601 executable checks**, 49 static icon checks, and checks across 18 XML files/resources passed. [Detailed results](TEST-RESULTS.txt). Local logic, Android test doubles, and source contracts do not establish real-device overlay behavior, live-account success, or a fix for automatic refresh during power saving.
+The full Windows Android build, APK alignment/signature verification, **13,106 executable checks**, 49 static icon checks, and checks across 18 XML files/resources passed. [Detailed results](TEST-RESULTS.txt). Local logic, Android test doubles, and source contracts do not establish real-device overlay behavior, live-account success, or a fix for automatic refresh during power saving.
 
-Separately, **31 Android 15 (API 35) emulator runtime checks** passed: release-APK installation, settings/real bitmap preview, overlay attachment, synthetic cache updates, resizing, dragging, hold-to-close/reopen, and the signed-out tap-refresh failure path. Networking was disabled; test-granted overlay permission and synthetic data were used. This was not screenshot visual QA, a preview-scroll-position test, real permission-screen interaction, physical lock/unlock testing, or an end-to-end three-tap home-launcher test.
+Separately, **62 Android 15 (API 35) emulator runtime checks passed on the 0.6.1 APK**. Actual bitmap pixels verified 100/50/0% opacity for background, text, and success feedback; a live overlay updated independently of home styling. The real interval dialog saved 47, rejected 14, preserved cancellation, and handled a shortcut. Existing attachment/drag/close checks passed again. Synthetic data and no networking were used. Actual 47-minute execution, logo pixels, direct opacity-slider interaction, screenshot visual QA, permission UI, real lock/unlock, and end-to-end home-launcher triple taps remain untested.
 
 <details>
 <summary>Build from source / verify the download</summary>
 
-Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 10.
+Windows build environment: JDK 21.0.8, Android platform 36, build-tools 35.0.0, Python 3. App metadata: minSdk 26 / targetSdk 35, package `dev.yerin.weeklymeter`, versionCode 11.
 
 ```powershell
 .\build-apk.ps1 -Project . -BuildDirectory ..\build-current -SigningDirectory ..\private-signing -Sdk D:\Android\Sdk -Jdk 'C:\Program Files\Android\Android Studio\jbr'
@@ -157,10 +162,10 @@ Replace SDK/JDK paths with your local installation paths and use a fresh `BuildD
 
 On Linux, set `ANDROID_HOME` and run `bash build-apk.sh`. A full Linux build and byte-for-byte reproducibility have not been verified. Raw build logs containing personal local paths are excluded from the public distribution.
 
-SHA-256 of the published `WeeklyMeter-0.6.0.apk`:
+SHA-256 of the published `WeeklyMeter-0.6.1.apk`:
 
 ```text
-c851ca1a3465ef6eee432aeff2f40c7e30a6dff86dc947cbc1c1f2e7e6a21954
+1be1cebbfad9406dc8c2b8b039c84575dcf6cd1f0abd6682ed2b9789fe223dcb
 ```
 
 A matching hash verifies file identity, not the safety of the app.

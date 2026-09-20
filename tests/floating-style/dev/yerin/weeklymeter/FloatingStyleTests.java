@@ -15,6 +15,7 @@ public final class FloatingStyleTests {
     }
     private static void styles(WidgetStyle expected,WidgetStyle actual,String label){
         eq(expected.background,actual.background,label+" background");eq(expected.opacity,actual.opacity,label+" opacity");eq(expected.radius,actual.radius,label+" radius");eq(expected.autoFit,actual.autoFit,label+" autofit");
+        eq(expected.overallOpacity,actual.overallOpacity,label+" overall opacity");
         eq(expected.automaticPadding,actual.automaticPadding,label+" automatic padding");eq(expected.paddingHorizontalDp,actual.paddingHorizontalDp,label+" horizontal padding");eq(expected.paddingVerticalDp,actual.paddingVerticalDp,label+" vertical padding");eq(expected.rowGapDp,actual.rowGapDp,label+" gap");
         eq(expected.feedbackEnabled,actual.feedbackEnabled,label+" feedback");eq(expected.feedbackDurationMs,actual.feedbackDurationMs,label+" feedback duration");eq(expected.brandMode,actual.brandMode,label+" brand mode");eq(expected.brandLogoSizeSp,actual.brandLogoSizeSp,label+" logo size");
         check(Arrays.equals(expected.order,actual.order),label+" order");
@@ -22,7 +23,7 @@ public final class FloatingStyleTests {
         dates(expected.resetDate,actual.resetDate,label+" reset");dates(expected.lastDate,actual.lastDate,label+" last");
     }
     private static WidgetStyle customized(int seed){
-        WidgetStyle s=WidgetStyle.defaults();s.background=0xff103050+seed;s.opacity=seed*7%101;s.radius=seed%33;s.autoFit=seed%2==0;s.automaticPadding=seed%3==0;
+        WidgetStyle s=WidgetStyle.defaults();s.background=0xff103050+seed;s.opacity=seed*7%101;s.overallOpacity=seed*13%101;s.radius=seed%33;s.autoFit=seed%2==0;s.automaticPadding=seed%3==0;
         s.paddingHorizontalDp=seed%32+.5f;s.paddingVerticalDp=(seed*3)%32+.5f;s.rowGapDp=seed%16+.5f;s.feedbackEnabled=seed%3!=0;s.feedbackDurationMs=100+(seed*700)%9900;s.brandMode=seed%4;s.brandLogoSizeSp=6+(seed*5)%58+.5f;
         for(int i=0;i<4;i++){WidgetStyle.Row r=s.rows[i];r.enabled=(seed+i)%2==0;r.font=(seed+i)%5;r.sizeSp=6+(seed+i*3)%90+.5f;r.color=0xff795230+seed+i;r.bold=(seed+i)%3==0;r.alignment=(seed+i)%3;r.offsetY=(seed+i*11)%100-50;}
         s.order=new int[]{(seed+3)%4,(seed+2)%4,(seed+1)%4,seed%4};
@@ -82,5 +83,26 @@ public final class FloatingStyleTests {
         p.values.put("width_dp","128");p.values.put("height_dp",true);eq(128,FloatingPreferences.widthDp(c),"bad width type fallback");eq(96,FloatingPreferences.heightDp(c),"bad height type fallback");
         p.failRead=true;eq(128,FloatingPreferences.widthDp(c),"failed width read fallback");eq(96,FloatingPreferences.heightDp(c),"failed height read fallback");
     }
-    public static void main(String[] args){defaultsAndIsolation();roundTrips();legacyMigration();malformedData();dimensions();System.out.println("PASS: "+checks+" floating style/persistence checks (JVM preference doubles; no device UI test)");}
+    private static void overallOpacity(){
+        Context c=new Context();WidgetStyle home=WidgetStyle.defaults(),floating=WidgetStyle.defaults();home.opacity=61;floating.opacity=23;
+        for(int value:new int[]{Integer.MIN_VALUE,-1,0,1,37,50,99,100,101,Integer.MAX_VALUE}){
+            home.overallOpacity=value;floating.overallOpacity=100-Math.max(0,Math.min(100,value));
+            WidgetAppearance.save(c,"widget_style",home);FloatingPreferences.saveStyle(c,floating);
+            WidgetStyle actualHome=WidgetAppearance.load(c,"widget_style"),actualFloating=FloatingPreferences.style(c);
+            eq(Math.max(0,Math.min(100,value)),actualHome.overallOpacity,"home overall save clamp");eq(floating.overallOpacity,actualFloating.overallOpacity,"floating overall isolated");
+            eq(61,actualHome.opacity,"home background opacity unchanged");eq(23,actualFloating.opacity,"floating background opacity unchanged");eq(value,home.overallOpacity,"save does not normalize caller overall opacity");
+        }
+        for(String name:new String[]{"widget_style","floating_style"}){
+            Context.MemoryPreferences p=prefs(c,name);p.values.clear();p.values.put("style_v3","{\"version\":3,\"opacity\":42,\"rows\":[{\"font\":2}]}");WidgetStyle old=WidgetAppearance.load(c,name);
+            eq(100,old.overallOpacity,"old style_v3 missing overall opacity defaults to 100");eq(42,old.opacity,"old background preserved");eq(2,old.rows[0].font,"old typography preserved");
+            for(String value:new String[]{"null","true","\"bad\"","9223372036854775807"}){
+                p.values.put("style_v3","{\"opacity\":42,\"overall_opacity\":"+value+"}");eq(100,WidgetAppearance.load(c,name).overallOpacity,"invalid overall value safe fallback");
+            }
+            for(int value:new int[]{-500,0,50,100,500}){p.values.put("style_v3","{\"overall_opacity\":"+value+"}");eq(Math.max(0,Math.min(100,value)),WidgetAppearance.load(c,name).overallOpacity,"loaded overall opacity bound");}
+        }
+        home.overallOpacity=15;floating.overallOpacity=79;WidgetAppearance.save(c,"widget_style",home);FloatingPreferences.saveStyle(c,floating);
+        FloatingPreferences.saveStyle(c,WidgetStyle.defaults());eq(15,WidgetAppearance.load(c,"widget_style").overallOpacity,"floating reset leaves home opacity");eq(100,FloatingPreferences.style(c).overallOpacity,"floating reset restores visible default");
+        FloatingPreferences.saveStyle(c,floating);WidgetAppearance.save(c,"widget_style",WidgetStyle.defaults());eq(79,FloatingPreferences.style(c).overallOpacity,"home reset leaves floating opacity");eq(100,WidgetAppearance.load(c,"widget_style").overallOpacity,"home reset restores visible default");
+    }
+    public static void main(String[] args){defaultsAndIsolation();roundTrips();legacyMigration();malformedData();dimensions();overallOpacity();System.out.println("PASS: "+checks+" floating style/persistence checks (JVM preference doubles; no device UI test)");}
 }

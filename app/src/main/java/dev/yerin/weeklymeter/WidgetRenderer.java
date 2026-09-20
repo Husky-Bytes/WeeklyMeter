@@ -32,6 +32,9 @@ final class WidgetRenderer {
         float scale=Math.min(density,Math.min(1024f/Math.max(w,h),(float)Math.sqrt(pixels/(w*h))));
         int pixelW=Math.max(1,(int)Math.floor(w*scale)),pixelH=Math.max(1,(int)Math.floor(h*scale));
         Bitmap bitmap=Bitmap.createBitmap(pixelW,pixelH,Bitmap.Config.ARGB_8888);Canvas canvas=new Canvas(bitmap);canvas.scale(pixelW/w,pixelH/h);
+        // Composite background, text, logo and feedback first; then fade the group
+        // exactly once so overlapping elements do not become independently translucent.
+        int opacityLayer=s.overallOpacity<100?canvas.saveLayerAlpha(0,0,w,h,s.overallAlpha()):-1;
         Paint bg=new Paint(Paint.ANTI_ALIAS_FLAG);bg.setColor(s.backgroundArgb());float radius=Math.min(s.radius,Math.min(w,h)/2);
         canvas.drawRoundRect(0,0,w,h,radius,radius,bg);
         WidgetStyle.Spacing edges=s.spacing(w,h,0);
@@ -88,6 +91,7 @@ final class WidgetRenderer {
         for(int i=0;i<rows.size();i++)drawRow(canvas,rows.get(i),placement.tops[i],paddingHorizontal,innerW);
         canvas.restore();
         if(s.feedbackEnabled)drawFeedback(canvas,feedbackState,w,h);
+        if(opacityLayer>=0)canvas.restoreToCount(opacityLayer);
         String access=(valid?Texts.t(c,"주간 잔여량 ","Weekly remaining ")+texts[0]:Texts.t(c,"주간 잔여량 확인 필요","Weekly remaining needs a refresh"))+". "+Display.reset(c,usage)+". "+Display.last(c,usage);
         if(!"none".equals(feedbackState))access+=". "+feedbackDescription(c,feedbackState);
         return new Result(bitmap,join(warnings),access,overflow);

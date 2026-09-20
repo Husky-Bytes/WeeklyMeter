@@ -33,6 +33,8 @@ try {
     Run-Native "$Jdk\bin\java.exe" @('-cp',$testClasses,'dev.yerin.weeklymeter.UsageRegressionTests')
     Run-Native "$Jdk\bin\java.exe" @('-cp',$testClasses,'dev.yerin.weeklymeter.WidgetStyleTests')
     Run-Native "$Jdk\bin\java.exe" @('-cp',$testClasses,'dev.yerin.weeklymeter.RefreshFeedbackTests')
+    Run-Native "$Jdk\bin\javac.exe" @('--release','8','-encoding','UTF-8','-d',$testClasses,"$src\RefreshInterval.java","$projectPath\tests\RefreshIntervalTests.java")
+    Run-Native "$Jdk\bin\java.exe" @('-cp',$testClasses,'dev.yerin.weeklymeter.RefreshIntervalTests')
     Run-Native "$Jdk\bin\javac.exe" @('--release','8','-encoding','UTF-8','-d',$testClasses,"$projectPath\tests\FontAssetTests.java")
     Run-Native "$Jdk\bin\java.exe" @('-Djava.awt.headless=true','-cp',$testClasses,'FontAssetTests',"$projectPath\app\src\main\assets\fonts")
     $authStubs = @(Get-ChildItem -LiteralPath "$projectPath\tests\auth-stubs" -Recurse -Filter '*.java' | ForEach-Object FullName)
@@ -53,7 +55,7 @@ try {
     Run-Native "$toolsPath\aapt2.exe" @('compile','--dir',"$projectPath\app\src\main\res",'-o',"$buildPath\resources.zip")
     # Windows aapt2 -A can emit backslashes in nested asset ZIP entry names.
     # Insert assets ourselves below using canonical Android '/' paths, before signing.
-    Run-Native "$toolsPath\aapt2.exe" @('link','-I',$androidJar,'--manifest',"$projectPath\app\src\main\AndroidManifest.xml",'--java',"$buildPath\gen",'--min-sdk-version','26','--target-sdk-version','35','--version-code','10','--version-name','0.6.0','-o',"$buildPath\base.apk","$buildPath\resources.zip")
+    Run-Native "$toolsPath\aapt2.exe" @('link','-I',$androidJar,'--manifest',"$projectPath\app\src\main\AndroidManifest.xml",'--java',"$buildPath\gen",'--min-sdk-version','26','--target-sdk-version','35','--version-code','11','--version-name','0.6.1','-o',"$buildPath\base.apk","$buildPath\resources.zip")
     $sources = @(Get-ChildItem -LiteralPath "$projectPath\app\src\main\java","$buildPath\gen" -Recurse -Filter '*.java' | ForEach-Object FullName)
     Run-Native "$Jdk\bin\javac.exe" (@('-source','8','-target','8','-encoding','UTF-8','-bootclasspath',"$toolsPath\core-lambda-stubs.jar;$androidJar",'-d',"$buildPath\classes") + $sources)
     Run-Native "$Jdk\bin\jar.exe" @('cf',"$buildPath\classes.jar",'-C',"$buildPath\classes",'.')

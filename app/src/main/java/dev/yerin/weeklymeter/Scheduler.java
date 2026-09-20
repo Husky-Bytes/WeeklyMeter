@@ -8,6 +8,10 @@ import android.content.*;
 final class Scheduler {
     static final int PERIODIC=22001, ONCE=22002;
     static JobScheduler jobs(Context c){return c.getSystemService(JobScheduler.class);}
+    static int minutes(Context c){
+        try{return RefreshInterval.normalize(Store.prefs(c).getInt("minutes",RefreshInterval.DEFAULT_MINUTES));}
+        catch(ClassCastException invalid){return RefreshInterval.DEFAULT_MINUTES;}
+    }
     static void retireLegacyManual(Context c){
         jobs(c).cancel(ONCE);
         Store.prefs(c).edit().remove("requested").apply();
@@ -17,11 +21,11 @@ final class Scheduler {
         boolean enabled=Store.connected(c)&&Store.prefs(c).getBoolean("auto",true)&&
             (AppWidgetManager.getInstance(c).getAppWidgetIds(new ComponentName(c,WeeklyWidget.class)).length>0||FloatingWidgetService.isActive());
         if(!enabled){jobs(c).cancel(PERIODIC);return;}
-        long mins=Store.prefs(c).getInt("minutes",15);if(mins!=15&&mins!=30&&mins!=60)mins=15;
+        long interval=RefreshInterval.millis(minutes(c));
         JobInfo old=jobs(c).getPendingJob(PERIODIC);
-        if(old!=null&&old.getIntervalMillis()==mins*60_000)return;
+        if(old!=null&&old.getIntervalMillis()==interval)return;
         JobInfo job=new JobInfo.Builder(PERIODIC,new ComponentName(c,UsageJob.class))
-            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setPeriodic(mins*60_000)
+            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setPeriodic(interval)
             .setPersisted(true).setBackoffCriteria(60_000,JobInfo.BACKOFF_POLICY_EXPONENTIAL).build();
         if(jobs(c).schedule(job)!=JobScheduler.RESULT_SUCCESS)Store.error(c,"자동 갱신 작업을 등록하지 못했어. 앱에서 새로고침해 줘.");
     }

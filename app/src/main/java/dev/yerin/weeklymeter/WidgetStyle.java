@@ -6,7 +6,7 @@ import java.util.*;
 final class WidgetStyle {
     static final int PERCENT=0,RESET=1,LAST=2,BRAND=3;
     static final int DEFAULT_BACKGROUND=0xff14181f,DEFAULT_RESET=0xffb8c1cf;
-    int background=DEFAULT_BACKGROUND,opacity=88,radius=18;
+    int background=DEFAULT_BACKGROUND,opacity=88,overallOpacity=100,radius=18;
     boolean autoFit=true,feedbackEnabled=true;
     boolean automaticPadding=true;
     float paddingHorizontalDp=5f,paddingVerticalDp=5f,rowGapDp=3f;
@@ -24,7 +24,7 @@ final class WidgetStyle {
     }
     static WidgetStyle defaults(){return new WidgetStyle();}
     WidgetStyle copy(){
-        WidgetStyle out=new WidgetStyle();out.background=background;out.opacity=opacity;out.radius=radius;
+        WidgetStyle out=new WidgetStyle();out.background=background;out.opacity=opacity;out.overallOpacity=overallOpacity;out.radius=radius;
         out.autoFit=autoFit;out.feedbackEnabled=feedbackEnabled;out.feedbackDurationMs=feedbackDurationMs;
         out.automaticPadding=automaticPadding;out.paddingHorizontalDp=paddingHorizontalDp;out.paddingVerticalDp=paddingVerticalDp;out.rowGapDp=rowGapDp;
         out.brandMode=brandMode;out.brandLogoSizeSp=brandLogoSizeSp;
@@ -32,7 +32,7 @@ final class WidgetStyle {
         out.order=order.clone();out.resetDate=resetDate.copy();out.lastDate=lastDate.copy();return out;
     }
     void normalize(){
-        background|=0xff000000;opacity=clamp(opacity,0,100);radius=clamp(radius,0,32);
+        background|=0xff000000;opacity=clamp(opacity,0,100);overallOpacity=clamp(overallOpacity,0,100);radius=clamp(radius,0,32);
         feedbackDurationMs=clamp(Math.round(feedbackDurationMs/100f)*100,100,10000);
         brandMode=clamp(brandMode,0,3);brandLogoSizeSp=half(bound(brandLogoSizeSp,6,64,16));
         paddingHorizontalDp=half(bound(paddingHorizontalDp,0,32,5));paddingVerticalDp=half(bound(paddingVerticalDp,0,32,5));rowGapDp=half(bound(rowGapDp,0,16,3));
@@ -47,6 +47,8 @@ final class WidgetStyle {
         resetDate.normalize();lastDate.normalize();
     }
     int backgroundArgb(){return (Math.round(opacity*255/100f)<<24)|(background&0xffffff);}
+    /** Applied once to the finished composition, never multiplied into individual rows. */
+    int overallAlpha(){return Math.round(clamp(overallOpacity,0,100)*255/100f);}
     static int parseRgb(String input){
         String value=input==null?"":input.trim();if(value.startsWith("#"))value=value.substring(1);
         if(!value.matches("[0-9a-fA-F]{6}"))throw new IllegalArgumentException("색상을 #RRGGBB 형식으로 입력해 주세요.");

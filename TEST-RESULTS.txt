@@ -1,12 +1,13 @@
-WeeklyMeter 0.6.0 — optional floating widget and separate appearance, 2026-09-20
+WeeklyMeter 0.6.1 — overall opacity and custom automatic-refresh interval, 2026-09-20
 
 PASS: 49 core parsing/network-boundary checks.
 PASS: 71 usage/JSON/bucket scenarios, including 1001 percentage samples.
-PASS: 1096 widget-style/date/layout/bitmap-budget/internal-spacing checks, pure Java.
+PASS: 1323 widget-style/date/layout/bitmap-budget/internal-spacing/overall-alpha checks, pure Java.
 PASS: 40 manual-refresh feedback/expiry checks, pure Java.
 PASS: 12 actual bundled font parsing/Korean-numeric glyph/license checks, JDK AWT.
 PASS: 91 authentication/refresh checks, real Api/Repo with fake HTTPS and storage.
-PASS: 148 periodic scheduler/job/feedback/diagnostic lifecycle checks with Android/Repo doubles.
+PASS: 167 periodic scheduler/job/feedback/diagnostic lifecycle checks with Android/Repo doubles.
+PASS: 107 refresh-interval input/range/default/millisecond policy checks, pure Java.
 PASS: 287 browser PKCE/callback checks, including synthetic real loopback sockets.
 PASS: 28 browser login service lifecycle checks with fake Android/browser/Repo.
 PASS: 118 manual foreground service checks with real service/Scheduler/UsageJob/Feedback
@@ -22,32 +23,50 @@ synthetic Android power/activity/job services. No phone settings are changed.
 PASS: 339 widget-publication checks using production WeeklyWidget/Store/Usage/style
 code with fake Android, host, Bitmap and renderer. These inspect publication payloads,
 not real Canvas pixels or launcher behavior.
-PASS: 5795 floating-style/persistence checks using production appearance/preferences
+PASS: 5947 floating-style/persistence checks using production appearance/preferences
 code and strict named SharedPreferences doubles. No real Activity or Canvas is run.
 PASS: 1160 floating geometry/gesture checks and service source-contract assertions.
 These do not instantiate a real overlay service or Android window.
 PASS: 36 APK asset checks: raw ZIP paths, duplicates, exact ten names, bytes/lengths.
 The 36 checks run before signing AND on the signed final APK; counted only once.
-TOTAL: 12601 executable Java logic/lifecycle/font/source-contract/APK checks.
-Increase over 0.5.2: 6 periodic/feedback + 54 manual-service/tap + 30 publication
-+ 5795 independent appearance/persistence + 1160 floating geometry/gesture/contracts.
+TOTAL: 13106 executable Java logic/lifecycle/font/source-contract/APK checks.
+Increase over 0.6.0: 227 style/alpha + 152 appearance/persistence
++ 19 periodic lifecycle + 107 custom-interval checks.
 The 1001 sampled percentages are part of the 71 usage scenarios, not an extra total.
-No real account or Android runtime is represented by the 12601 checks above.
+No real account or Android runtime is represented by the 13106 checks above.
 Separate emulator runtime checks are reported below and are not added to that total.
 PASS: 49 additional static adaptive-icon resource and safe-zone geometry checks.
 PASS: 18 XML files, resource references, manifest components and restricted permissions.
 PASS: Full Windows Android compilation, DEX, alignment, signing and APK verification.
 
 Build: JDK 21.0.8; Android platform 36; build-tools 35.0.0; minSdk26/targetSdk35.
-Package dev.yerin.weeklymeter; versionCode10/versionName0.6.0.
+Package dev.yerin.weeklymeter; versionCode11/versionName0.6.1.
 Compiled locales: default English, explicit English, Korean.
 Compiled application labels: WeeklyMeter / 주간 잔여량.
 APK signature v2/v3 verified; preserved personal update signing certificate.
 APK size: 3639356 bytes; zipalign -c 4 passed.
-APK SHA256: c851ca1a3465ef6eee432aeff2f40c7e30a6dff86dc947cbc1c1f2e7e6a21954
+APK SHA256: 1be1cebbfad9406dc8c2b8b039c84575dcf6cd1f0abd6682ed2b9789fe223dcb
 Certificate SHA256: abfc4290289a8df7abffe951cf096fcd1fbe3972f0887d95390bab5a4d5816ab
 
-0.6.0 floating-widget checks:
+0.6.1 new behavior and host checks:
+Overall opacity defaults to 100, normalizes to 0..100, is copied and persisted
+independently for home/floating appearance, and defaults to 100 when absent from old
+style_v3/legacy preferences. Tests cover all 101 percent-to-alpha values, integer
+bounds, preserving original background/text colors, copies, roundtrips, wrong types,
+out-of-range saved values, and resets without affecting the other widget mode.
+The production renderer composites background, text, logos and feedback into one
+layer before applying the overall alpha; it does not fade overlapping elements
+independently. At 100 it preserves the existing rendering path. Separate Android
+Canvas pixel/runtime verification is recorded below for the final 0.6.1 APK.
+
+The shared interval policy accepts integer minutes 15..10080, with 15/30/60 shortcuts.
+Invalid user input is rejected without storing it; invalid/wrong-type previously
+saved preferences fall back to 15. Tests cover parse/range bounds, long arithmetic,
+custom interval scheduling and retention, unchanged-interval no-op behavior and
+existing automatic-refresh eligibility. Changing the interval adjusts JobScheduler;
+it does not request usage. An OS-scheduled interval is not an exact deadline.
+
+Retained 0.6.0 floating-widget checks:
 The preference tests compare every appearance field across roundtrips, all legacy
 format/size/alignment combinations, malformed/oversized/wrong-type storage, default
 values, size read/save bounds, and independent returned style objects. Floating
@@ -77,11 +96,27 @@ Style Activity source review confirms separate mode/title/stores, 48..360dp widt
 shortcut, and all existing appearance controls. Source/model checks do not run real
 Android layout, accessibility, keyboard, color-wheel or overlay compositing.
 
-SEPARATE PASS: 31 Android 15/API35 emulator instrumentation runtime checks.
-Environment: isolated Pixel 8 profile emulator; published release APK 0.6.0 installed.
+SEPARATE PASS: 62 Android 15/API35 emulator instrumentation runtime checks.
+Environment: isolated Pixel 8 profile emulator; final release APK 0.6.1 installed.
 Wi-Fi and mobile data disabled. No account, credentials or live usage API used.
-The recorded instrumentation result was RUNTIME_SMOKE_PASS checks=31.
-Runtime checks verify:
+The recorded instrumentation result was RUNTIME_SMOKE_PASS checks=62; runner exit 0.
+The 62 checks include the earlier floating coverage, rerun on 0.6.1, and do not add
+the old 0.6.0 count of 31 again. They are separate from the 13106 host checks.
+New runtime checks verify:
+- real Bitmap renders at overall opacity 100/50/0 retain dimensions and identify
+  distinct background, text, and success-feedback pixel regions;
+- full-opacity opaque composition remains opaque; 50% alpha errors are 0 in all
+  three regions, RGB premultiplication rounding error is at most 1, and every
+  zero-opacity pixel is fully transparent;
+- live floating rendering changes 100->50->0->100 without reopening or querying,
+  preserves the home style at 73%, and keeps the zero-opacity session closable;
+- Android preferences retain 47/10080 minutes; 14 and wrong-type values fall back;
+- the actual MainActivity dialog saves typed 47 and closes, rejects typed 14 with
+  a visible input error while staying attached, and preserves saved 47 on cancel;
+- the 30-minute shortcut changes input but does not persist before Save;
+- interval settings neither query usage nor connect an account.
+
+Retained runtime checks verify:
 - test-granted overlay permission and target version;
 - actual floating settings Activity creation, Bitmap-backed preview, configured
   independent dimensions/styles, and no refresh on opening settings;
@@ -104,6 +139,10 @@ not finger/launcher touch delivery. No screenshot visual QA, actual pinned-previ
 position while scrolling, real permission revocation, notification drawer or complete
 home-launcher triple-tap path was tested. Emulator checks do not establish Samsung
 One UI behavior, real credentials, live query success or power-saving reliability.
+Opacity changes were saved programmatically; the opacity slider itself was not
+manipulated. The pixel fixture did not include the optional ChatGPT logo. Interval
+tests verify input and stored scheduling values, not waiting 47 minutes for a real
+automatic network query. None of these tests is screenshot-based visual QA.
 
 Retained 0.5.2 battery/background guidance and diagnostics:
 BackgroundAccess tests exercise API26/27/28/33/34/35/36, power saver and exemption
@@ -170,7 +209,8 @@ instances. Coordinated overlapping renders cannot restore an older published rea
 A cold language/widget lock-order scenario completes without deadlock.
 These 339 checks use captured fake payloads, not real Android RemoteViews/Canvas.
 
-Automatic refresh remains JobScheduler-based at 15/30/60-minute settings. The
+Automatic refresh remains JobScheduler-based, now at a custom 15..10080-minute
+interval with 15/30/60 shortcuts. Saving an interval does not fetch usage. The
 manifest now declares seven permissions: the existing INTERNET,
 ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED, FOREGROUND_SERVICE,
 FOREGROUND_SERVICE_DATA_SYNC plus optional-overlay SYSTEM_ALERT_WINDOW and
@@ -213,8 +253,8 @@ do not fetch usage. Success feedback requires fresh valid saved data, defaults t
 and supports 0.1–10s. OS process death can retain an image until the next redraw.
 55-second request watchdog and 70-second service cap are not strict HTTP total limits.
 Windows packaging keeps forward-slash asset names. Original four font OFLs unchanged.
-No authentication endpoint, credential format or signing-key change. The two new
-overlay-related permissions are declared above; overlay permission is user-controlled.
+No authentication endpoint, credential format, signing-key or permission change in
+0.6.1. The two overlay permissions added in 0.6.0 remain; overlay permission is user-controlled.
 No passwords, account tokens, signing keys or raw private-path build logs distributed.
 
 NOT TESTED: physical-phone APK installation/launch; actual Chrome/Samsung Internet authorization;
